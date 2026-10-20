@@ -1,0 +1,13 @@
+diff --git a/demo2.py b/demo2.py
+index 5161968..c9cd7c3 100644
+--- a/demo2.py
++++ b/demo2.py
+@@ -7,7 +7,7 @@ from tools.utils import load_audio
+ 
+ 
+ def main():
+-    model_dir = "FunAudioLLM/Fun-ASR-Nano-2512"
++    model_dir = "./pretrained_models/Fun-ASR-Nano-2512"
+     device = (
+         "cuda:0"
+         if torch.cuda.is_available()
