@@ -20,8 +20,12 @@ def main() -> None:
     source = args.source_dir.resolve()
     model_dir = args.model_dir.resolve()
     prompt_audio = (args.prompt_audio or source / "asset/zero_shot_prompt.wav").resolve()
-    if not (model_dir / "cosyvoice3.yaml").is_file() or not prompt_audio.is_file():
-        raise FileNotFoundError("TTS 模型或参考音频缺失；请按 docs/models.md 下载。")
+    if not (model_dir / "cosyvoice3.yaml").is_file():
+        raise FileNotFoundError(
+            f"找不到 TTS 模型配置：{model_dir / 'cosyvoice3.yaml'}；请按 docs/installation.md 下载。"
+        )
+    if not prompt_audio.is_file():
+        raise FileNotFoundError(f"找不到参考录音：{prompt_audio}；请核对参考录音路径。")
     if not (source / "third_party/Matcha-TTS/matcha").is_dir():
         raise FileNotFoundError("请先递归初始化 CosyVoice 的 Matcha-TTS 子模块。")
     sys.path[:0] = [str(source), str(source / "third_party/Matcha-TTS")]

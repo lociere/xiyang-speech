@@ -14,8 +14,12 @@ def main() -> None:
     args = parser.parse_args()
     model_dir = args.model_dir.resolve()
     audio = (args.audio or model_dir / "example/zh.mp3").resolve()
-    if not (model_dir / "model.pt").is_file() or not audio.is_file():
-        raise FileNotFoundError("ASR 模型或测试音频缺失；请按 docs/models.md 下载。")
+    if not (model_dir / "model.pt").is_file():
+        raise FileNotFoundError(
+            f"找不到 ASR 模型：{model_dir / 'model.pt'}；请按 docs/installation.md 下载。"
+        )
+    if not audio.is_file():
+        raise FileNotFoundError(f"找不到输入录音：{audio}；请核对 --audio 后的路径和文件名。")
 
     import torch
     from funasr import AutoModel

@@ -5,7 +5,6 @@
 
 # Local artifacts: models, recordings, outputs and logs
 /models/
-/data/
 /runtime/
 **/pretrained_models/
 *.pt
