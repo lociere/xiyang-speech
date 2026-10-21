@@ -1,0 +1,18 @@
+{
+  "python.defaultInterpreterPath": "${env:HOME}/miniconda3/envs/xiyang-app/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "files.eol": "\n",
+  "files.watcherExclude": {
+    "**/models/**": true,
+    "**/data/**": true,
+    "**/runtime/**": true
+  },
+  "search.exclude": {
+    "models": true,
+    "data": true,
+    "runtime": true,
+    "third_party": true
+  }
+}

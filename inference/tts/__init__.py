@@ -1,0 +1,1 @@
+"""CosyVoice inference integration."""

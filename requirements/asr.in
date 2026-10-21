@@ -1,0 +1,11 @@
+# Application inference dependencies; torch wheels are installed separately from cu128.
+funasr==1.4.15
+transformers==4.57.1
+modelscope==1.40.2
+zhconv==1.4.3
+whisper_normalizer==0.1.15
+pyopenjtalk-plus==0.4.1.post9
+compute-wer==0.2.5
+openai-whisper==20250625
+torch==2.9.1+cu128
+torchaudio==2.9.1+cu128

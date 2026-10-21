@@ -1,13 +1,12 @@
-# 本地上游工程及备份
-/Fun-ASR/
-/CosyVoice/
-/CosyVoice_backup_*/
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
 
-# 模型、测试录音及生成结果
+# Local artifacts: models, recordings, outputs and logs
 /models/
-/samples/
-/outputs/
-/environment-records/
+/data/
+/runtime/
 **/pretrained_models/
 *.pt
 *.pth
@@ -15,29 +14,22 @@
 *.onnx
 *.safetensors
 *.gguf
-*.wav
-*.mp3
-*.m4a
-*.flac
-*.mp4
 
-# Python 环境和缓存
+# Python environments, caches and builds
 .venv/
 venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
-# 前端依赖和构建结果
-node_modules/
+.ruff_cache/
+*.egg-info/
+build/
 dist/
+.coverage
+htmlcov/
 
-# 本地凭据
-.env
-.env.*
-!.env.example
-
-# 日志和系统文件
+# Frontend builds and system files
+node_modules/
 *.log
 .DS_Store
 Thumbs.db
