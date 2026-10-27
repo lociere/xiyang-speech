@@ -19,7 +19,7 @@ SOURCE_DIR = ROOT / "third_party/CosyVoice"
 sys.path.insert(0, str(SOURCE_DIR))
 sys.path.insert(0, str(SOURCE_DIR / "third_party/Matcha-TTS"))
 
-from cosyvoice.cli.cosyvoice import AutoModel
+from cosyvoice.cli.cosyvoice import AutoModel  # noqa: E402
 
 
 MODEL_DIR = ROOT / "models/tts/Fun-CosyVoice3-0.5B-2512"
@@ -71,6 +71,11 @@ app = FastAPI(
     title="昔阳方言语音生成服务",
     lifespan=lifespan,
 )
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok", "worker": "tts"}
 
 
 @app.post(
