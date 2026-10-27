@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>昔阳方言语音工具</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__title">
+      <h1>昔阳方言语音工具</h1>
+      <span class="topbar__subtitle">识别 · 合成 · 图片说话</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="asr" role="tab">识别</button>
+      <button class="tab" data-tab="tts" role="tab">合成</button>
+      <button class="tab" data-tab="talk" role="tab">图片说话</button>
+    </nav>
+    <div class="statusbar">
+      <span class="status" data-status="asr"><i class="dot"></i>识别</span>
+      <span class="status" data-status="tts"><i class="dot"></i>合成</span>
+      <span class="status" data-status="talk"><i class="dot"></i>说话人</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 识别 -->
+    <section class="panel is-active" data-panel="asr">
+      <h2>方言识别</h2>
+      <p class="hint">上传昔阳话录音，识别成文字。</p>
+
+      <div class="dropzone" id="asr-dropzone">
+        <input type="file" id="asr-file" accept=".wav,.mp3,.m4a,.flac" hidden>
+        <div class="dropzone__content">
+          <span class="dropzone__icon">🎙️</span>
+          <p>点击或拖拽音频到此处</p>
+          <p class="dropzone__meta">支持 WAV / MP3 / M4A / FLAC</p>
+        </div>
+      </div>
+      <div class="file-chip is-hidden" id="asr-file-chip"></div>
+
+      <button class="btn btn--primary" id="asr-submit" disabled>开始识别</button>
+
+      <div class="result is-hidden" id="asr-result">
+        <div class="result__head">
+          <span>识别结果</span>
+          <button class="btn btn--ghost" id="asr-copy">复制</button>
+        </div>
+        <p class="result__text" id="asr-text"></p>
+      </div>
+    </section>
+
+    <!-- 合成 -->
+    <section class="panel" data-panel="tts">
+      <h2>方言合成</h2>
+      <p class="hint">输入文字，生成昔阳话语音。</p>
+
+      <label class="field">
+        <textarea id="tts-text" maxlength="300" rows="4" placeholder="输入要合成的文字（1–300 字）"></textarea>
+        <span class="field__count"><span id="tts-count">0</span>/300</span>
+      </label>
+
+      <button class="btn btn--primary" id="tts-submit" disabled>生成语音</button>
+
+      <div class="result is-hidden" id="tts-result">
+        <audio id="tts-audio" controls></audio>
+        <button class="btn btn--ghost" id="tts-download">下载</button>
+      </div>
+    </section>
+
+    <!-- 图片说话 -->
+    <section class="panel" data-panel="talk">
+      <h2>图片说话</h2>
+      <p class="hint">上传人物图片并输入文字，让人物开口说方言（嘴型对齐）。</p>
+      <span class="badge is-hidden" id="talk-badge"></span>
+
+      <div class="talk-grid">
+        <div class="dropzone" id="talk-dropzone">
+          <input type="file" id="talk-file" accept=".jpg,.jpeg,.png" hidden>
+          <div class="dropzone__content">
+            <span class="dropzone__icon">🖼️</span>
+            <p>点击或拖拽图片到此处</p>
+            <p class="dropzone__meta">支持 JPG / PNG</p>
+          </div>
+          <img id="talk-preview" class="dropzone__preview is-hidden" alt="图片预览">
+        </div>
+
+        <div class="talk-controls">
+          <label class="field">
+            <textarea id="talk-text" rows="4" maxlength="300" placeholder="输入人物要说的方言文字"></textarea>
+          </label>
+          <p class="hint hint--small">也可以直接上传一段音频驱动口型（文字、音频二选一）。</p>
+          <input type="file" id="talk-audio" accept=".wav,.mp3,.m4a,.flac">
+          <button class="btn btn--primary" id="talk-submit" disabled>生成视频</button>
+        </div>
+      </div>
+
+      <div class="progress is-hidden" id="talk-progress">
+        <div class="progress__bar"><div class="progress__fill" id="talk-progress-fill"></div></div>
+        <span class="progress__label" id="talk-progress-label">排队中…</span>
+      </div>
+
+      <div class="result is-hidden" id="talk-result">
+        <video id="talk-video" controls></video>
+        <button class="btn btn--ghost" id="talk-download">下载</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast is-hidden" id="toast"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -28,3 +28,8 @@ transformers==4.51.3
 x-transformers==2.11.24
 wetext==0.0.4
 wget==3.2
+
+# Web server for the TTS worker; gdown is imported by CosyVoice inference.
+fastapi==0.115.12
+uvicorn==0.34.2
+gdown==6.4.2

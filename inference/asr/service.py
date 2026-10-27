@@ -48,6 +48,11 @@ app = FastAPI(
 )
 
 
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok", "worker": "asr"}
+
+
 @app.post("/recognize")
 def recognize(audio: UploadFile = File(...)):
     suffix = Path(audio.filename or "").suffix.lower()

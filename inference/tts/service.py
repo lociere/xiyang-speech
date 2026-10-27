@@ -73,6 +73,11 @@ app = FastAPI(
 )
 
 
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok", "worker": "tts"}
+
+
 @app.post(
     "/synthesize",
     response_class=FileResponse,
