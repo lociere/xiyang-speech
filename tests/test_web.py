@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import httpx
 
 from backend.main import create_app
 
@@ -28,7 +29,18 @@ def test_tts_rejects_empty_text():
     assert response.status_code == 422
 
 
-def test_talk_proxy_returns_502_when_worker_offline():
+def test_talk_proxy_returns_502_when_worker_offline(monkeypatch):
+    from backend.routers import talk
+
+    original_client = httpx.AsyncClient
+
+    def offline(request):
+        raise httpx.ConnectError("worker offline", request=request)
+
+    def client_factory(**kwargs):
+        return original_client(transport=httpx.MockTransport(offline), **kwargs)
+
+    monkeypatch.setattr(talk.httpx, "AsyncClient", client_factory)
     client = _client()
     submit = client.post(
         "/api/talk",
@@ -39,3 +51,23 @@ def test_talk_proxy_returns_502_when_worker_offline():
 
     status = client.get("/api/talk/doesnotexist")
     assert status.status_code == 502
+
+
+def test_talk_result_uses_application_video_url(monkeypatch):
+    from backend.routers import talk
+
+    original_client = httpx.AsyncClient
+
+    def response_for_worker(request):
+        return httpx.Response(200, json={
+            "status": "done", "progress": 100, "error": None,
+            "video_url": "/talk/example/video",
+        })
+
+    def client_factory(**kwargs):
+        return original_client(transport=httpx.MockTransport(response_for_worker), **kwargs)
+
+    monkeypatch.setattr(talk.httpx, "AsyncClient", client_factory)
+    response = _client().get("/api/talk/example")
+    assert response.status_code == 200
+    assert response.json()["video_url"] == "/api/talk/example/video"

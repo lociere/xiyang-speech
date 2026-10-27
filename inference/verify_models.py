@@ -32,7 +32,7 @@ def verify_model(root: Path, spec: dict) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--component", choices=["asr", "tts", "all"], default="all")
+    parser.add_argument("--component", choices=["asr", "tts", "talk", "all"], default="all")
     args = parser.parse_args()
     manifest = json.loads((ROOT / "config/models.json").read_text(encoding="utf-8"))
     for component, spec in manifest["models"].items():

@@ -66,7 +66,10 @@ async def get_job(job_id: str) -> dict:
 
     if response.status_code >= 400:
         raise HTTPException(status_code=response.status_code, detail=_extract_detail(response))
-    return response.json()
+    job = response.json()
+    if job.get("video_url"):
+        job["video_url"] = f"/api/talk/{job_id}/video"
+    return job
 
 
 @router.get("/talk/{job_id}/video")

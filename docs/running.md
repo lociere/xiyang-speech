@@ -20,7 +20,7 @@
 
 ### 2.1 四个 conda 环境已建好
 
-按 [installation.md](installation.md) 完成「应用 / 识别 / 生成」三个环境；MuseTalk 环境按 `third_party/MuseTalk/README.md` 建立（torch 2.0.1+cu118、MMLab 的 mmcv/mmdet/mmpose、`requirements/talk.in`）。模型与 MuseTalk 权重都已下载到 `models/` 和 `third_party/MuseTalk/models/`。
+按 [installation.md](installation.md) 完成「应用 / 识别 / 生成」三个环境；MuseTalk 环境按 [musetalk.md](musetalk.md) 建立（torch 2.0.1+cu118、MMLab 的 mmcv/mmdet/mmpose、`requirements/talk.txt`）。模型与 MuseTalk 权重都已下载到 `models/` 和 `third_party/MuseTalk/models/`。
 
 ### 2.2 补装 worker 的 Web 依赖
 
@@ -38,9 +38,9 @@ python -m pip install fastapi uvicorn gdown
 
 ## 3. 重要：内存限制（串行运行）
 
-本机内存约 **7.6 GB**。ASR、TTS、MuseTalk 三个模型都很重，**任意两个都不能同时常驻**，一起启动会触发 OOM（终端显示 `Killed`，退出码 137）。
+ASR、TTS、MuseTalk 都需要较多内存和显存。资源不足时同时常驻可能触发 OOM（终端显示 `Killed`，退出码 137）；是否能够同时运行以部署设备的实际测试为准。
 
-因此采用**串行运行**：每个 worker 单独启动，用完停掉再换下一个。
+本地首次验证建议**串行运行**：每个 worker 单独启动，用完停掉再换下一个。
 
 - 图片说话走「图片 + 文字」时，talk worker 内部会**先起一个 TTS 子进程生成方言音频、退出后再跑 MuseTalk**，两者不同时常驻（子进程退出即释放内存）。这比直接上传音频慢，属预期。
 
@@ -49,7 +49,7 @@ python -m pip install fastapi uvicorn gdown
 **终端 1 — TTS worker（务必先设动态库路径）**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate xiyang-tts
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib/python3.10/site-packages/torch/lib:$CONDA_PREFIX/lib/python3.10/site-packages/nvidia/cudnn/lib:$CONDA_PREFIX/lib/python3.10/site-packages/nvidia/cublas/lib:$CONDA_PREFIX/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${LD_LIBRARY_PATH:-}"
 python -m uvicorn inference.tts.service:app --host 127.0.0.1 --port 8102
@@ -58,7 +58,7 @@ python -m uvicorn inference.tts.service:app --host 127.0.0.1 --port 8102
 **终端 2 — 应用层**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate xiyang-app
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
@@ -70,7 +70,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 **终端 1 — ASR worker**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate xiyang-asr
 python -m uvicorn inference.asr.service:app --host 127.0.0.1 --port 8101
 ```
@@ -78,7 +78,7 @@ python -m uvicorn inference.asr.service:app --host 127.0.0.1 --port 8101
 **终端 2 — 应用层（同上）**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate xiyang-app
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
@@ -90,7 +90,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 **终端 1 — Talk worker（MuseTalk 环境）**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate MuseTalk
 python -m uvicorn inference.talk.service:app --host 127.0.0.1 --port 8103
 ```
@@ -100,7 +100,7 @@ python -m uvicorn inference.talk.service:app --host 127.0.0.1 --port 8103
 **终端 2 — 应用层**
 
 ```bash
-cd /home/whz/xiyang-speech
+cd ~/xiyang-speech
 conda activate xiyang-app
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```

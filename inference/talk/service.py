@@ -27,7 +27,7 @@ TTS_PYTHON = os.environ.get(
     "XIYANG_TTS_PYTHON",
     str(Path.home() / "miniconda3" / "envs" / "xiyang-tts" / "bin" / "python"),
 )
-TTS_PREFIX = Path(TTS_PYTHON).resolve().parents[2]
+TTS_PREFIX = Path(TTS_PYTHON).resolve().parent.parent
 _TTS_LD_LIBRARY_PATH = ":".join(
     [
         str(TTS_PREFIX / "lib/python3.10/site-packages/torch/lib"),
