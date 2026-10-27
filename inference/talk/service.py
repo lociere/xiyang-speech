@@ -18,7 +18,7 @@ import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from inference.talk.engine import MuseTalkEngine
+from inference.talk.engine import MuseTalkEngine, validate_portrait
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "runtime/outputs/talk"
@@ -89,6 +89,9 @@ def _process_job(job_id: str) -> None:
     try:
         job["status"] = "running"
         job["progress"] = 3
+
+        # Fail unsupported portraits before the expensive TTS/model-switching step.
+        validate_portrait(str(job["image_path"]))
 
         # 1. Resolve the audio input.
         if job.get("text"):

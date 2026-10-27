@@ -39,8 +39,22 @@ from musetalk.utils.utils import (  # noqa: E402
 )
 from musetalk.utils.preprocessing import (  # noqa: E402
     coord_placeholder,
+    fa,
     get_landmark_and_bbox,
 )
+
+
+def validate_portrait(image_path: str) -> None:
+    """Reject unreadable images and unsupported faces before loading speech models."""
+    frame = cv2.imread(image_path)
+    if frame is None:
+        raise ValueError("无法读取图片，请上传有效的 JPG 或 PNG 图片。")
+    detections = fa.get_detections_for_batch(np.asarray([frame]))
+    if not detections or all(box is None for box in detections):
+        raise ValueError(
+            "未检测到可用人脸，请上传清晰的单人正脸人像。"
+            "卡通、非人类角色或脸部遮挡可能无法被 MuseTalk 识别。"
+        )
 
 
 class MuseTalkEngine:
@@ -152,7 +166,12 @@ class MuseTalkEngine:
         )
 
         # --- Face crop + VAE latents ---------------------------------------------
-        coord_list, frame_list = get_landmark_and_bbox(input_img_list, 0)
+        try:
+            coord_list, frame_list = get_landmark_and_bbox(input_img_list, 0)
+        except ZeroDivisionError as exc:
+            raise ValueError(
+                "人脸定位失败，请使用清晰的单人正脸人像；当前图片可能不适合 MuseTalk。"
+            ) from exc
 
         input_latent_list = []
         for bbox, frame in zip(coord_list, frame_list):
@@ -224,7 +243,7 @@ class MuseTalkEngine:
         cmd_img2video = [
             "ffmpeg", "-y", "-v", "warning", "-r", str(fps), "-f", "image2",
             "-i", f"{result_img_dir}/%08d.png", "-vcodec", "libx264",
-            "-vf", "format=yuv420p", "-crf", "18", temp_vid_path,
+            "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p", "-crf", "18", temp_vid_path,
         ]
         subprocess.run(cmd_img2video, check=True)
 
