@@ -22,11 +22,13 @@ cd xiyang-speech
 git submodule update --init --recursive
 ```
 
-新机器应在本次配置已提交并推送后再拉取。上面的普通 clone 适用于配置已合并到默认分支后；如果配置只发布在 `chore/repository-setup` 分支，clone 时添加 `-b chore/repository-setup`。已有仓库直接进入根目录即可。VS Code 用 WSL 模式打开此目录。
+已有仓库直接进入根目录，执行子模块初始化即可。VS Code 用 WSL 模式打开此目录。Git 负责拉取项目和第三方源码；Python 环境与模型权重需要按下文另行安装、下载。
 
-## 3. 安装三个环境
+## 3. 安装环境
 
 应用、识别、生成分别安装，避免依赖冲突。同名环境已存在时不要重复创建。
+
+数字人使用第四个独立环境 `MuseTalk`，按 [MuseTalk 环境](musetalk.md) 安装。只使用“图片 + 已有音频”时需要应用和 MuseTalk；“图片 + 文字”还需要 TTS 环境与参考音频。
 
 **应用：**
 
@@ -86,10 +88,11 @@ hf download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 --revision 29e01c4e8d000f4bcd70
 保留这里指定的来源和版本：不同平台上的同名 ASR 模型文件可能不同。随后校验：
 
 ```bash
-python -m inference.verify_models
+python -m inference.verify_models --component asr
+python -m inference.verify_models --component tts
 ```
 
-预期 ASR 11 个、TTS 13 个必要文件全部通过。
+预期 ASR 11 个、TTS 13 个必要文件全部通过。MuseTalk 安装后用 `--component talk` 校验 10 个文件；省略参数会检查全部三个模型组件。
 
 ## 5. 配置与检查
 
@@ -99,7 +102,7 @@ python -m inference.verify_models
 cp .env.example .env
 ```
 
-默认路径已对应上述下载目录。使用外部模型目录时，编辑 `.env`。独立检查命令使用默认目录，外部目录需另传 `--model-dir`。
+默认路径已对应上述下载目录。`.env` 由应用层读取，可配置 worker 地址；独立 worker 当前使用源码中约定的仓库内模型路径，修改 `.env` 不会自动改变这些路径。建议保持上述目录。检查命令需要使用外部目录时，另传 `--model-dir`。
 
 检查识别：
 
@@ -128,9 +131,9 @@ conda activate xiyang-app
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-访问 `http://localhost:8000/health` 或 `http://localhost:8000/docs`。当前只有健康接口，网页和语音业务接口尚未完成。Ctrl+C 停止服务。
+访问 `http://localhost:8000/` 使用网页，`http://localhost:8000/docs` 查看接口。识别、合成、图片说话需分别启动对应 worker，完整命令见 [运行说明](running.md)。Ctrl+C 停止服务。
 
-两人开发时需要检查代码可运行：
+提交前检查代码：
 
 ```bash
 python -m pytest -q
@@ -146,4 +149,4 @@ ruff check backend inference tests
 | ORT 找不到 CUDA 库或回退 CPU | 核对 ORT 安装源，并执行 TTS 的动态库路径设置 |
 | WeText 资源 403 | 当前会回退基础文本处理；数字、日期朗读需要另外检查 |
 
-本机已完成模型校验和短样本推理，应用依赖已在全新环境重建。两套 GPU 环境及全部权重尚未做从零重装、重新下载的完整验收，交付前需在目标机器补做。
+本机已完成应用测试、模型校验，以及 ASR/TTS 短样本推理和 MuseTalk 两条生成链路。MuseTalk 环境已从零安装；ASR/TTS 沿用原环境，交付前仍需在目标设备完整安装和验收。

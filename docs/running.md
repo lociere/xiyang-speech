@@ -22,19 +22,9 @@
 
 按 [installation.md](installation.md) 完成「应用 / 识别 / 生成」三个环境；MuseTalk 环境按 [musetalk.md](musetalk.md) 建立（torch 2.0.1+cu118、MMLab 的 mmcv/mmdet/mmpose、`requirements/talk.txt`）。模型与 MuseTalk 权重都已下载到 `models/` 和 `third_party/MuseTalk/models/`。
 
-### 2.2 补装 worker 的 Web 依赖
+### 2.2 依赖与参考音频
 
-当前 `requirements/asr.txt`、`requirements/tts.txt` 尚未包含 Web 依赖（已列入待办），需手动补装一次：
-
-```bash
-conda activate xiyang-asr
-python -m pip install fastapi uvicorn python-multipart
-
-conda activate xiyang-tts
-python -m pip install fastapi uvicorn gdown
-```
-
-> `gdown` 是 CosyVoice 推理必需；`python-multipart` 是 ASR 接收上传音频所需。MuseTalk 环境已在安装时带上了 fastapi/uvicorn/python-multipart（见 `requirements/talk.in`）。
+Web 依赖已包含在各自的 `requirements/*.txt` 中，按安装文档安装即可，不必另装最新版。图片加文字使用本地 `data/xiyang_prompt.wav` 作为 TTS 参考音频；图片加已有音频不需要调用 TTS。
 
 ## 3. 重要：内存限制（串行运行）
 
@@ -42,7 +32,7 @@ ASR、TTS、MuseTalk 都需要较多内存和显存。资源不足时同时常�
 
 本地首次验证建议**串行运行**：每个 worker 单独启动，用完停掉再换下一个。
 
-- 图片说话走「图片 + 文字」时，talk worker 内部会**先起一个 TTS 子进程生成方言音频、退出后再跑 MuseTalk**，两者不同时常驻（子进程退出即释放内存）。这比直接上传音频慢，属预期。
+- 图片说话走「图片 + 文字」时，Talk worker 会卸载 MuseTalk 主模型，启动 TTS 子进程，待子进程退出后重新加载 MuseTalk。人脸检测组件仍驻留，因此这不是完全释放所有模型。模型切换会增加等待时间。
 
 ## 4. 只跑「合成」（TTS）
 
@@ -95,7 +85,7 @@ conda activate MuseTalk
 python -m uvicorn inference.talk.service:app --host 127.0.0.1 --port 8103
 ```
 
-> 首次加载 MuseTalk 模型约一分钟；文字任务还会额外先跑 TTS 子进程。
+> 首个任务会加载 MuseTalk 主模型；文字任务还会额外运行 TTS 并重新加载主模型。耗时取决于设备。只使用图片说话时，无需另开 `:8102` 的 TTS worker。
 
 **终端 2 — 应用层**
 
@@ -107,9 +97,11 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 浏览器切到「图片说话」卡片，上传人物图片 + 文字（或音频）即可。
 
+图片建议使用清晰、面部无遮挡的单人正脸人像。卡通或非人类角色可能无法检测；人脸检查失败时会提前给出中文提示。奇数尺寸图片会在视频编码时补齐到偶数宽高。当前采用自动人脸定位，尚无手动面部/嘴部选择。
+
 ## 7. 验证
 
-worker 首次启动要加载模型，等终端出现 `Application startup complete` 后再操作。
+等终端出现 `Application startup complete` 后再操作。Talk worker 的完整主模型在首个任务时加载，健康接口在线只表示服务能够接收请求。
 
 ```bash
 # 应用层健康
@@ -134,7 +126,7 @@ curl http://localhost:8000/api/health
 | `No module named 'uvicorn'` / `fastapi` | worker 环境缺 Web 依赖 | 见第 2.2 节补装 |
 | `PreTrainedModel requires PyTorch` | transformers 版本过新（≥5 需 torch≥2.5），与 torch 2.3.1 不匹配 | 确认 `transformers==4.51.3`、`diffusers==0.29.0` |
 | `No module named 'inference.tts'` | 从非项目根目录启动，或装了 PyPI 同名包 `inference`（Roboflow） | 在项目根目录运行；`pip uninstall inference` 及 `inference-models` 等 |
-| 图片说话报 `No module named 'mmpose'` 等 | MuseTalk 环境 MMLab 依赖缺失 | 按 MuseTalk README 用 `mim install` 装 mmengine/mmcv/mmdet/mmpose |
+| 图片说话报 `No module named 'mmpose'` 等 | MuseTalk 环境 MMLab 依赖缺失 | 按 [MuseTalk 环境](musetalk.md) 安装固定版本与匹配的 MMCV wheel |
 | 图片说话报 `no face detected` | 图片里没人脸，或人脸太小/侧脸 | 换一张正脸、清晰的人像 |
 | 上传音频/图片无反应 | 前端或应用层未起 | 确认应用层 `:8000` 已启动 |
 

@@ -67,12 +67,17 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 Talk worker 的 `/health` 表示服务在线；完整模型延迟到首个任务加载，因此健康接口成功不等于视频生成已经验证。生成结果位于 `runtime/outputs/talk/`。
 
+上传清晰、面部无遮挡的单人正脸人像；卡通和非人类角色可能无法识别。当前使用自动人脸定位，尚无手动选择面部/嘴部。图片会先做人脸检查，不支持的图片提前返回中文提示；奇数尺寸图片在编码时补齐为偶数尺寸。
+
+任务状态仅存于 worker 内存，重启后旧任务编号不可继续查询；已生成的视频文件仍保留。当前没有自动清理机制，测试产生的文件可在停止服务后从 `runtime/outputs/talk/` 手动清理。
+
 ## 5. 本机验证记录（2026-10-27）
 
 - Python 3.10 / PyTorch 2.0.1+cu118，RTX 4050 Laptop；`pip check` 和 MMCV CUDA NMS 算子检查通过。
 - `config/models.json` 中 10 个 Talk 权重文件大小和 SHA256 校验通过；源码子模块保持干净。
 - 官方示例人像 + 本地 TTS 音频：生成 2.92 秒 H.264/AAC、25fps 视频，并通过 `/api/talk/{job_id}/video` 获取成功。
 - 官方示例人像 + 输入文字：TTS 子进程、MuseTalk、应用层视频获取整条链路通过。
+- 用户提供的 315×375 人像：生成 316×376、2.92 秒视频；卡通图提前返回人脸检测失败提示。
 - 工程测试 10 项通过，Ruff 检查通过。
 
 测试视频留在 `runtime/checks/musetalk-http-test.mp4` 和 `runtime/checks/musetalk-text-test.mp4`，只作本地验证，不属于交付素材。

@@ -15,7 +15,7 @@ frontend/
     player.js       音频/视频播放与 Blob 下载
     asr.js          识别：上传音频 → 文字 + 复制
     tts.js          合成：文字 → 音频播放 + 下载
-    talk.js         图片说话：图片+文字/音频 → 视频 + 进度（mock）
+    talk.js         图片说话：图片+文字/音频 → 视频 + 任务进度
 ```
 
 ## 运行
@@ -27,4 +27,4 @@ conda activate xiyang-app
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-识别、合成需要对应的 worker 已在 `:8101`、`:8102` 启动（见 `docs/installation.md`）。图片说话当前为 mock 模式（`XIYANG_TALK_MOCK=true`），返回 ffmpeg 生成的示例视频。
+识别、合成需要对应 worker 在 `:8101`、`:8102` 启动。图片说话使用 `:8103` 的真实 MuseTalk worker。浏览器始终只访问应用层 `:8000`，启动方式见 [运行说明](../docs/running.md)。
