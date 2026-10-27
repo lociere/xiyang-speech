@@ -9,3 +9,8 @@ compute-wer==0.2.5
 openai-whisper==20250625
 torch==2.9.1+cu128
 torchaudio==2.9.1+cu128
+
+# Web server for the ASR worker.
+fastapi==0.115.12
+uvicorn==0.34.2
+python-multipart==0.0.20
