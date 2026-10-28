@@ -1,3 +1,8 @@
+let health = { asr: false, tts: false, talk: false };
+export function serviceReady(name) {
+  return Boolean(health[name]);
+}
+
 async function errorFrom(response) {
   let detail = null;
   try {
@@ -28,8 +33,31 @@ export function errorMessage(err) {
 
 export async function getHealth() {
   try {
-    return await request("/api/health");
+    health = await request("/api/health", { signal: AbortSignal.timeout(5000) });
+    return health;
   } catch {
-    return { asr: false, tts: false, talk: false, talk_mock: false };
+    health = { asr: false, tts: false, talk: false, talk_mock: false };
+    return health;
+  }
+}
+
+// Poll separately so model cold starts do not hold the upload request open.
+export async function waitJob(jobId, onProgress = () => {}) {
+  let failures = 0;
+  for (;;) {
+    let job;
+    try {
+      job = await request("/api/jobs/" + jobId, { signal: AbortSignal.timeout(10000) });
+      failures = 0;
+    } catch (err) {
+      if (++failures >= 5) throw new Error("任务连接中断。任务编号：" + jobId + "。请恢复连接后查询，避免重复提交。");
+      onProgress({ message: "连接中断，正在重试…" });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      continue;
+    }
+    onProgress(job);
+    if (job.status === "error") throw new Error(job.error || "任务失败");
+    if (job.status === "done") return job;
+    await new Promise(resolve => setTimeout(resolve, 1500));
   }
 }

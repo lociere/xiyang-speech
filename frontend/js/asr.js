@@ -1,4 +1,4 @@
-import { request, errorMessage } from "./api.js";
+import { request, waitJob, errorMessage, serviceReady } from "./api.js";
 import { toast, setBusy, copyText } from "./ui.js";
 
 function formatSize(bytes) {
@@ -17,6 +17,7 @@ export function initAsr() {
   const copyBtn = document.getElementById("asr-copy");
 
   let file = null;
+  let busy = false;
 
   function setFile(next) {
     file = next;
@@ -30,8 +31,11 @@ export function initAsr() {
   }
 
   function refreshSubmit() {
-    submitBtn.disabled = !file;
+    submitBtn.disabled = busy || !serviceReady("asr") || !file;
   }
+
+  document.addEventListener("service-health", refreshSubmit);
+  refreshSubmit();
 
   dropzone.addEventListener("click", () => fileInput.click());
   dropzone.addEventListener("dragover", (e) => {
@@ -47,18 +51,24 @@ export function initAsr() {
   fileInput.addEventListener("change", () => setFile(fileInput.files[0] || null));
 
   submitBtn.addEventListener("click", async () => {
-    if (!file) return;
+    if (busy || !serviceReady("asr") || !file) return;
     const form = new FormData();
     form.append("audio", file);
 
+    busy = true;
     setBusy(submitBtn, true, "识别中…");
     try {
-      const data = await request("/api/asr/recognize", { method: "POST", body: form });
+      const submitted = await request("/api/asr/recognize", { method: "POST", body: form });
+      const job = await waitJob(submitted.job_id, state => {
+        submitBtn.textContent = state.message || "等待中…";
+      });
+      const data = job.result;
       textEl.textContent = data.text || "";
       resultEl.classList.remove("is-hidden");
     } catch (err) {
       toast(errorMessage(err));
     } finally {
+      busy = false;
       setBusy(submitBtn, false);
       refreshSubmit();
     }

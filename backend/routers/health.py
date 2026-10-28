@@ -1,27 +1,16 @@
-"""Aggregate health of the model workers, for the frontend status bar."""
-import httpx
-from fastapi import APIRouter
-
-from backend.settings import Settings
+"""Application availability and model states; standby is a normal state."""
+from fastapi import APIRouter, Request
 
 router = APIRouter(prefix="/api", tags=["health"])
 
 
-async def _probe(base_url: str) -> bool:
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            response = await client.get(f"{base_url.rstrip('/')}/health")
-            return response.status_code == 200
-    except httpx.HTTPError:
-        return False
-
-
 @router.get("/health")
-async def worker_health() -> dict:
-    settings = Settings()
+def worker_health(request: Request) -> dict:
+    runtime = getattr(request.app.state, "runtime", None)
+    available = runtime is not None and runtime.accepting
     return {
-        "asr": await _probe(settings.asr_worker_url),
-        "tts": await _probe(settings.tts_worker_url),
-        "talk": await _probe(settings.talk_worker_url),
-        "talk_mock": False,
+        "asr": available, "tts": available, "talk": available, "talk_mock": False,
+        "models": runtime.models.states.copy() if runtime else {},
+        "queued": runtime.queue.qsize() if runtime else 0,
+        "active_job": runtime.active_job if runtime else None,
     }

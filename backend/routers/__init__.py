@@ -1,1 +1,1 @@
-"""Application-layer routers that proxy and orchestrate the model workers."""
+"""HTTP routes for jobs, results and service status."""

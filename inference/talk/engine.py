@@ -1,25 +1,19 @@
-"""MuseTalk inference engine, refactored from scripts/inference.py for use inside a FastAPI worker.
-
-The upstream inference script mixes argparse, a YAML task loop and model loading. This
-module exposes a small ``MuseTalkEngine`` class that loads the models once and exposes a
-``generate`` method taking a single image/video + audio pair.
-"""
+"""MuseTalk adapter for generating lip-synced video from image/video and audio."""
 import copy
+from contextlib import ExitStack
 import glob
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
 
 import cv2
 import numpy as np
 import torch
 from transformers import WhisperModel
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MUSETALK_ROOT = PROJECT_ROOT / "third_party" / "MuseTalk"
+from inference.config import TALK_SOURCE_DIR as MUSETALK_ROOT
 
 # MuseTalk relies on many hardcoded relative paths ("models/...", "./musetalk/utils/..."),
 # so the process working directory must be the MuseTalk repository root.
@@ -118,128 +112,132 @@ class MuseTalkEngine:
 
         Returns the absolute path to the generated mp4 (same as ``output_path``).
         """
-        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        with ExitStack() as cleanup:
+            os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-        # --- Resolve input frames -------------------------------------------------
-        file_type = get_file_type(image_path)
-        if file_type == "video":
-            temp_frame_dir = tempfile.mkdtemp(prefix="musetalk_frames_")
-            cmd = ["ffmpeg", "-v", "fatal", "-i", image_path, "-start_number", "0",
-                   f"{temp_frame_dir}/%08d.png"]
-            subprocess.run(cmd, check=True)
-            input_img_list = sorted(glob.glob(os.path.join(temp_frame_dir, "*.[jpJP][pnPN]*[gG]")))
-            fps = int(get_video_fps(image_path))
-        elif file_type == "image":
-            input_img_list = [image_path]
-            temp_frame_dir = None
-        else:
-            raise ValueError(f"{image_path} is not a supported image or video file")
-
-        # --- Audio features -------------------------------------------------------
-        whisper_input_features, librosa_length = self.audio_processor.get_audio_feature(audio_path)
-        if whisper_input_features is None:
-            raise ValueError(f"audio file not found or unreadable: {audio_path}")
-
-        whisper_chunks = self.audio_processor.get_whisper_chunk(
-            whisper_input_features,
-            self.device,
-            self.unet.model.dtype,
-            self.whisper,
-            librosa_length,
-            fps=fps,
-            audio_padding_length_left=audio_padding_length_left,
-            audio_padding_length_right=audio_padding_length_right,
-        )
-
-        # --- Face crop + VAE latents ---------------------------------------------
-        coord_list, frame_list = get_landmark_and_bbox(input_img_list, 0)
-
-        input_latent_list = []
-        for bbox, frame in zip(coord_list, frame_list):
-            if bbox == coord_placeholder:
-                continue
-            x1, y1, x2, y2 = bbox
-            if self.version == "v15":
-                y2 = y2 + extra_margin
-                y2 = min(y2, frame.shape[0])
-            crop_frame = frame[y1:y2, x1:x2]
-            crop_frame = cv2.resize(crop_frame, (256, 256), interpolation=cv2.INTER_LANCZOS4)
-            input_latent_list.append(self.vae.get_latents_for_unet(crop_frame))
-
-        if not input_latent_list:
-            raise ValueError("no face detected in the input image/video")
-
-        # Mirror head/tail so audio longer than the frame count can cycle.
-        frame_list_cycle = frame_list + frame_list[::-1]
-        coord_list_cycle = coord_list + coord_list[::-1]
-        input_latent_list_cycle = input_latent_list + input_latent_list[::-1]
-
-        # --- Batched UNet inference ----------------------------------------------
-        video_num = len(whisper_chunks)
-        total_batches = int(np.ceil(float(video_num) / batch_size))
-        gen = datagen(
-            whisper_chunks=whisper_chunks,
-            vae_encode_latents=input_latent_list_cycle,
-            batch_size=batch_size,
-            delay_frame=0,
-            device=self.device,
-        )
-
-        res_frame_list = []
-        for i, (whisper_batch, latent_batch) in enumerate(gen):
-            audio_feature_batch = self.pe(whisper_batch)
-            latent_batch = latent_batch.to(dtype=self.unet.model.dtype)
-            pred_latents = self.unet.model(
-                latent_batch, self.timesteps, encoder_hidden_states=audio_feature_batch
-            ).sample
-            recon = self.vae.decode_latents(pred_latents)
-            for res_frame in recon:
-                res_frame_list.append(res_frame)
-            if progress_cb is not None:
-                progress_cb(i + 1, total_batches)
-
-        # --- Blend generated face back into the original frame --------------------
-        result_img_dir = tempfile.mkdtemp(prefix="musetalk_result_")
-        for i, res_frame in enumerate(res_frame_list):
-            bbox = coord_list_cycle[i % len(coord_list_cycle)]
-            ori_frame = copy.deepcopy(frame_list_cycle[i % len(frame_list_cycle)])
-            x1, y1, x2, y2 = bbox
-            if self.version == "v15":
-                y2 = y2 + extra_margin
-                y2 = min(y2, frame_list[0].shape[0])
-            try:
-                res_frame = cv2.resize(res_frame.astype(np.uint8), (x2 - x1, y2 - y1))
-            except Exception:
-                continue
-
-            if self.version == "v15":
-                combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2],
-                                          mode=parsing_mode, fp=self.fp)
+            # Resolve input frames
+            file_type = get_file_type(image_path)
+            if file_type == "video":
+                temp_frame_dir = cleanup.enter_context(tempfile.TemporaryDirectory(prefix="musetalk_frames_"))
+                cmd = ["ffmpeg", "-v", "fatal", "-i", image_path, "-start_number", "0",
+                       f"{temp_frame_dir}/%08d.png"]
+                subprocess.run(cmd, check=True, timeout=120)
+                input_img_list = sorted(glob.glob(os.path.join(temp_frame_dir, "*.[jpJP][pnPN]*[gG]")))
+                fps = int(get_video_fps(image_path))
+            elif file_type == "image":
+                input_img_list = [image_path]
+                temp_frame_dir = None
             else:
-                combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], fp=self.fp)
-            cv2.imwrite(f"{result_img_dir}/{str(i).zfill(8)}.png", combine_frame)
+                raise ValueError(f"{image_path} is not a supported image or video file")
 
-        # --- Assemble video with ffmpeg ------------------------------------------
-        temp_vid_path = os.path.join(tempfile.gettempdir(), f"musetalk_{os.getpid()}_video.mp4")
-        cmd_img2video = [
-            "ffmpeg", "-y", "-v", "warning", "-r", str(fps), "-f", "image2",
-            "-i", f"{result_img_dir}/%08d.png", "-vcodec", "libx264",
-           #"-vf", "format=yuv420p", "-crf", "18", temp_vid_path,
-           "-vf", "scale=ceil(iw/2)*2:ceil(ih/2)*2:flags=lanczos,format=yuv420p", "-crf", "18", temp_vid_path,
-        ]
-        subprocess.run(cmd_img2video, check=True)
+            # Audio features
+            whisper_input_features, librosa_length = self.audio_processor.get_audio_feature(audio_path)
+            if whisper_input_features is None:
+                raise ValueError(f"audio file not found or unreadable: {audio_path}")
 
-        cmd_combine_audio = [
-            "ffmpeg", "-y", "-v", "warning", "-i", audio_path, "-i", temp_vid_path,
-            output_path,
-        ]
-        subprocess.run(cmd_combine_audio, check=True)
+            whisper_chunks = self.audio_processor.get_whisper_chunk(
+                whisper_input_features,
+                self.device,
+                self.unet.model.dtype,
+                self.whisper,
+                librosa_length,
+                fps=fps,
+                audio_padding_length_left=audio_padding_length_left,
+                audio_padding_length_right=audio_padding_length_right,
+            )
 
-        # --- Cleanup --------------------------------------------------------------
-        shutil.rmtree(result_img_dir, ignore_errors=True)
-        if temp_frame_dir is not None:
-            shutil.rmtree(temp_frame_dir, ignore_errors=True)
-        if os.path.exists(temp_vid_path):
-            os.remove(temp_vid_path)
+            # Face crop + VAE latents
+            try:
+                coord_list, frame_list = get_landmark_and_bbox(input_img_list, 0)
+            except ZeroDivisionError as exc:
+                raise ValueError("未检测到可用人脸，请上传清晰、无遮挡的单人正脸照片") from exc
 
-        return output_path
+            input_latent_list = []
+            for bbox, frame in zip(coord_list, frame_list):
+                if bbox == coord_placeholder:
+                    continue
+                x1, y1, x2, y2 = bbox
+                if self.version == "v15":
+                    y2 = y2 + extra_margin
+                    y2 = min(y2, frame.shape[0])
+                crop_frame = frame[y1:y2, x1:x2]
+                crop_frame = cv2.resize(crop_frame, (256, 256), interpolation=cv2.INTER_LANCZOS4)
+                input_latent_list.append(self.vae.get_latents_for_unet(crop_frame))
+
+            if not input_latent_list:
+                raise ValueError("no face detected in the input image/video")
+
+            # Mirror head/tail so audio longer than the frame count can cycle.
+            frame_list_cycle = frame_list + frame_list[::-1]
+            coord_list_cycle = coord_list + coord_list[::-1]
+            input_latent_list_cycle = input_latent_list + input_latent_list[::-1]
+
+            # Batched UNet inference
+            video_num = len(whisper_chunks)
+            total_batches = int(np.ceil(float(video_num) / batch_size))
+            gen = datagen(
+                whisper_chunks=whisper_chunks,
+                vae_encode_latents=input_latent_list_cycle,
+                batch_size=batch_size,
+                delay_frame=0,
+                device=self.device,
+            )
+
+            res_frame_list = []
+            for i, (whisper_batch, latent_batch) in enumerate(gen):
+                audio_feature_batch = self.pe(whisper_batch)
+                latent_batch = latent_batch.to(dtype=self.unet.model.dtype)
+                pred_latents = self.unet.model(
+                    latent_batch, self.timesteps, encoder_hidden_states=audio_feature_batch
+                ).sample
+                recon = self.vae.decode_latents(pred_latents)
+                for res_frame in recon:
+                    res_frame_list.append(res_frame)
+                if progress_cb is not None:
+                    progress_cb(i + 1, total_batches)
+
+            # Blend generated face back into the original frame
+            result_img_dir = cleanup.enter_context(tempfile.TemporaryDirectory(prefix="musetalk_result_"))
+            for i, res_frame in enumerate(res_frame_list):
+                bbox = coord_list_cycle[i % len(coord_list_cycle)]
+                ori_frame = copy.deepcopy(frame_list_cycle[i % len(frame_list_cycle)])
+                x1, y1, x2, y2 = bbox
+                if self.version == "v15":
+                    y2 = y2 + extra_margin
+                    y2 = min(y2, frame_list[0].shape[0])
+                try:
+                    res_frame = cv2.resize(res_frame.astype(np.uint8), (x2 - x1, y2 - y1))
+                except Exception:
+                    continue
+
+                if self.version == "v15":
+                    combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2],
+                                              mode=parsing_mode, fp=self.fp)
+                else:
+                    combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], fp=self.fp)
+                cv2.imwrite(f"{result_img_dir}/{str(i).zfill(8)}.png", combine_frame)
+
+            # Assemble video with ffmpeg
+            temp_vid_path = os.path.join(result_img_dir, "silent.mp4")
+            # H.264 yuv420p requires even frame dimensions.
+            cmd_img2video = [
+                "ffmpeg", "-y", "-v", "warning", "-r", str(fps), "-f", "image2",
+                "-i", f"{result_img_dir}/%08d.png", "-vcodec", "libx264",
+               "-vf", "scale=ceil(iw/2)*2:ceil(ih/2)*2:flags=lanczos,format=yuv420p", "-crf", "18", temp_vid_path,
+            ]
+            subprocess.run(cmd_img2video, check=True, timeout=120)
+
+            cmd_combine_audio = [
+                "ffmpeg", "-y", "-v", "warning", "-i", audio_path, "-i", temp_vid_path,
+                output_path,
+            ]
+            subprocess.run(cmd_combine_audio, check=True, timeout=120)
+
+            # Cleanup
+            shutil.rmtree(result_img_dir, ignore_errors=True)
+            if temp_frame_dir is not None:
+                shutil.rmtree(temp_frame_dir, ignore_errors=True)
+            if os.path.exists(temp_vid_path):
+                os.remove(temp_vid_path)
+
+            return output_path

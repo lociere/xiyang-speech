@@ -1,4 +1,4 @@
-import { requestBlob, errorMessage } from "./api.js";
+import { request, requestBlob, waitJob, errorMessage, serviceReady } from "./api.js";
 import { toast, setBusy } from "./ui.js";
 import { playBlob, downloadBlob } from "./player.js";
 
@@ -11,31 +11,40 @@ export function initTts() {
   const downloadBtn = document.getElementById("tts-download");
 
   let lastBlob = null;
+  let busy = false;
 
   function refresh() {
     countEl.textContent = String(textEl.value.length);
-    submitBtn.disabled = textEl.value.trim().length === 0;
+    submitBtn.disabled = busy || !serviceReady("tts") || textEl.value.trim().length === 0;
   }
 
   textEl.addEventListener("input", refresh);
+  document.addEventListener("service-health", refresh);
+  refresh();
 
   submitBtn.addEventListener("click", async () => {
     const text = textEl.value.trim();
-    if (!text) return;
+    if (busy || !serviceReady("tts") || !text) return;
 
+    busy = true;
     setBusy(submitBtn, true, "生成中…");
     try {
-      lastBlob = await requestBlob("/api/tts/synthesize", {
+      const submitted = await request("/api/tts/synthesize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
+      const job = await waitJob(submitted.job_id, state => {
+        submitBtn.textContent = state.message || "等待中…";
+      });
+      lastBlob = await requestBlob(job.result_url);
       playBlob(lastBlob, "audio/wav", audioEl);
       resultEl.classList.remove("is-hidden");
       audioEl.play().catch(() => {});
     } catch (err) {
       toast(errorMessage(err));
     } finally {
+      busy = false;
       setBusy(submitBtn, false);
       refresh();
     }

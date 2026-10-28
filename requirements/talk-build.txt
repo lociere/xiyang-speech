@@ -1,0 +1,4 @@
+# Install before chumpy's legacy build; all are also fixed in talk.txt.
+numpy==1.23.5
+scipy==1.15.3
+Cython==3.3.0

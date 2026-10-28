@@ -4,14 +4,16 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+from inference.config import ROOT, TTS_MODEL_DIR, TTS_SOURCE_DIR
+from inference.tts.resources import local_wetext_resources
+
 PROMPT = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-dir", type=Path, default=ROOT / "models/tts/Fun-CosyVoice3-0.5B-2512")
-    parser.add_argument("--source-dir", type=Path, default=ROOT / "third_party/CosyVoice")
+    parser.add_argument("--model-dir", type=Path, default=TTS_MODEL_DIR)
+    parser.add_argument("--source-dir", type=Path, default=TTS_SOURCE_DIR)
     parser.add_argument("--prompt-audio", type=Path)
     parser.add_argument("--prompt-text", default=PROMPT)
     parser.add_argument("--text", default="你好，欢迎使用语音工具。")
@@ -22,7 +24,7 @@ def main() -> None:
     prompt_audio = (args.prompt_audio or source / "asset/zero_shot_prompt.wav").resolve()
     if not (model_dir / "cosyvoice3.yaml").is_file():
         raise FileNotFoundError(
-            f"找不到 TTS 模型配置：{model_dir / 'cosyvoice3.yaml'}；请按 docs/installation.md 下载。"
+            f"找不到 TTS 模型配置：{model_dir / 'cosyvoice3.yaml'}；请按 docs/setup.md 下载。"
         )
     if not prompt_audio.is_file():
         raise FileNotFoundError(f"找不到参考录音：{prompt_audio}；请核对参考录音路径。")
@@ -36,7 +38,8 @@ def main() -> None:
 
     if not torch.cuda.is_available():
         raise RuntimeError("当前验收配置要求 CUDA GPU，请检查驱动与 PyTorch。")
-    model = AutoModel(model_dir=str(model_dir), fp16=True, load_trt=False, load_vllm=False)
+    with local_wetext_resources():
+        model = AutoModel(model_dir=str(model_dir), fp16=True, load_trt=False, load_vllm=False)
     providers = model.frontend.speech_tokenizer_session.get_providers()
     if "CUDAExecutionProvider" not in providers:
         raise RuntimeError("语音 tokenizer 已回退到 CPU；请检查 ORT CUDA 构建和动态库。")

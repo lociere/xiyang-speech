@@ -1,10 +1,10 @@
 """Application configuration, independent of machine-specific paths."""
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT = Path(__file__).resolve().parents[1]
+from inference.config import ROOT
 
 
 class Settings(BaseSettings):
@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     asr_worker_url: str = "http://127.0.0.1:8101"
     tts_worker_url: str = "http://127.0.0.1:8102"
     talk_worker_url: str = "http://127.0.0.1:8103"
+    model_idle_seconds: float = Field(default=120, ge=0)
+    model_start_timeout: float = Field(default=300, gt=0)
+    inference_timeout: float = Field(default=300, gt=0)
+    max_queued_jobs: int = Field(default=8, ge=1)
+    max_audio_seconds: float = Field(default=60, gt=0)
+    max_audio_mb: int = Field(default=25, ge=1)
+    max_image_mb: int = Field(default=8, ge=1)
 
     @field_validator("asr_model_dir", "tts_model_dir", "tts_source_dir", "output_dir")
     @classmethod

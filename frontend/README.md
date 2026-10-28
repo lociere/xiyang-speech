@@ -1,30 +1,17 @@
 # 前端
 
-单页 Web 界面，由 FastAPI 托管，原生 ES modules + 手写 CSS，无 Node.js、无构建、无 CDN 依赖。
+原生 JavaScript ES modules 和 CSS，由 FastAPI 托管。
 
-## 结构
+按 [运行说明](../docs/running.md) 启动项目，访问 http://localhost:8000/。前端仅调用应用层 API，三项功能均采用异步任务提交和轮询。
 
-```text
-frontend/
-  index.html        单页三卡：识别 / 合成 / 图片说话
-  css/app.css       样式
-  js/
-    main.js         标签切换、服务状态栏
-    api.js          request / requestBlob / getHealth 等网络封装
-    ui.js           toast、按钮加载态、复制
-    player.js       音频/视频播放与 Blob 下载
-    asr.js          识别：上传音频 → 文字 + 复制
-    tts.js          合成：文字 → 音频播放 + 下载
-    talk.js         图片说话：图片+文字/音频 → 视频 + 进度（mock）
-```
+| 文件 | 职责 |
+|---|---|
+| js/main.js | 标签切换和服务状态 |
+| js/api.js | 请求、错误解析和任务轮询 |
+| js/asr.js | 录音上传、识别结果和复制 |
+| js/tts.js | 文本合成和音频结果 |
+| js/talk.js | 人物图片、驱动音频、任务进度和视频结果 |
+| js/player.js | 媒体播放和下载 |
+| js/ui.js | 提示、按钮状态和复制操作 |
 
-## 运行
-
-启动应用层后访问 `http://localhost:8000/`：
-
-```bash
-conda activate xiyang-app
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-识别、合成需要对应的 worker 已在 `:8101`、`:8102` 启动（见 `docs/installation.md`）。图片说话当前为 mock 模式（`XIYANG_TALK_MOCK=true`），返回 ffmpeg 生成的示例视频。
+接口定义见 [HTTP API](../docs/api.md)，验收要求见 [交付验收](../docs/delivery.md)。

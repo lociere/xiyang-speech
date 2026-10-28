@@ -1,0 +1,10 @@
+# Linux x86_64; Python dependencies: requirements/talk.txt.
+name: MuseTalk
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.10.22
+  - pip=26.2.1
+  - setuptools=80.9.0
+  - wheel=0.48.0

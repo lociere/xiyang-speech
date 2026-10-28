@@ -18,13 +18,14 @@
       <button class="tab" data-tab="talk" role="tab">图片说话</button>
     </nav>
     <div class="statusbar">
-      <span class="status" data-status="asr"><i class="dot"></i>识别</span>
-      <span class="status" data-status="tts"><i class="dot"></i>合成</span>
-      <span class="status" data-status="talk"><i class="dot"></i>说话人</span>
+      <span class="status" data-status="asr"><i class="dot"></i><span class="service-label">识别准备中</span></span>
+      <span class="status" data-status="tts"><i class="dot"></i><span class="service-label">合成准备中</span></span>
+      <span class="status" data-status="talk"><i class="dot"></i><span class="service-label">说话人准备中</span></span>
     </div>
   </header>
 
   <main>
+    <p id="service-readiness" class="hint" role="status" aria-live="polite">正在检查服务状态…</p>
     <!-- 识别 -->
     <section class="panel is-active" data-panel="asr">
       <h2>方言识别</h2>

@@ -10,12 +10,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from funasr import AutoModel
 
 
-# 配置路径
-ROOT = Path(__file__).resolve().parents[2]
-MODEL_DIR = ROOT / "models/asr/Fun-ASR-Nano-2512"
-UPLOAD_DIR = ROOT / "runtime/uploads"
+import os
+from inference.config import ASR_MODEL_DIR as MODEL_DIR, UPLOAD_DIR
 
-# 创建日志工具和锁
 logger = logging.getLogger(__name__)
 model_lock = Lock()
 
@@ -26,15 +23,15 @@ async def lifespan(app:FastAPI):
     if not (MODEL_DIR / "model.pt").is_file():
         raise RuntimeError(f"找不到模型：{MODEL_DIR}")
 
-    if not torch.cuda.is_available():
+    if os.environ.get("XIYANG_ASR_DEVICE", "cuda:0").startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("当前环境无法使用CUDA GPU")
 
     UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
 
     app.state.model = AutoModel(
         model=str(MODEL_DIR),
-        device="cuda:0",
-        disable_updata=True,
+        device=os.environ.get("XIYANG_ASR_DEVICE", "cuda:0"),
+        disable_update=True,
     )
 
     yield
@@ -66,7 +63,6 @@ def recognize(audio: UploadFile = File(...)):
     temp_path = None
 
     try:
-        # 为每次上传生成不同的临时文件名，避免互相覆盖
         with tempfile.NamedTemporaryFile(
             dir=UPLOAD_DIR,
             suffix=suffix,
@@ -78,7 +74,6 @@ def recognize(audio: UploadFile = File(...)):
         if temp_path.stat().st_size == 0:
             raise HTTPException(status_code=400, detail="上传的文件为空")
 
-        # 同一时间只让一个请求使用模型
         with model_lock, torch.inference_mode():
             result = app.state.model.generate(
                 input=str(temp_path),
@@ -107,6 +102,5 @@ def recognize(audio: UploadFile = File(...)):
         )
 
     finally:
-        # 识别结束后删除临时副本，原始录音不受影响
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)

@@ -3,12 +3,12 @@ import argparse
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+from inference.config import ROOT, ASR_MODEL_DIR
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-dir", type=Path, default=ROOT / "models/asr/Fun-ASR-Nano-2512")
+    parser.add_argument("--model-dir", type=Path, default=ASR_MODEL_DIR)
     parser.add_argument("--audio", type=Path)
     parser.add_argument("--output", type=Path, default=ROOT / "runtime/checks/asr.json")
     args = parser.parse_args()
@@ -16,7 +16,7 @@ def main() -> None:
     audio = (args.audio or model_dir / "example/zh.mp3").resolve()
     if not (model_dir / "model.pt").is_file():
         raise FileNotFoundError(
-            f"找不到 ASR 模型：{model_dir / 'model.pt'}；请按 docs/installation.md 下载。"
+            f"找不到 ASR 模型：{model_dir / 'model.pt'}；请按 docs/setup.md 下载。"
         )
     if not audio.is_file():
         raise FileNotFoundError(f"找不到输入录音：{audio}；请核对 --audio 后的路径和文件名。")

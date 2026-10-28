@@ -1,8 +1,4 @@
-# MuseTalk talking-head worker, runs in its own conda environment "MuseTalk".
-#
-# torch wheels are installed separately from the cu118 index, and the MMLab stack
-# (mmengine / mmcv==2.0.1 / mmdet==3.1.0 / mmpose==1.1.0) is installed via `mim install`,
-# not pip. See docs/running.md and third_party/MuseTalk/requirements.txt.
+# MuseTalk direct dependencies. Install using docs/setup.md.
 torch==2.0.1+cu118
 transformers==4.39.2
 diffusers==0.30.2
@@ -13,9 +9,22 @@ opencv-python==4.9.0.80
 soundfile==0.12.1
 librosa==0.11.0
 einops==0.8.1
-omegaconf
+omegaconf==2.4.0
 
 # Web server for the talk worker.
 fastapi==0.115.12
 uvicorn==0.34.2
 python-multipart==0.0.20
+
+python-dotenv==1.2.4
+# Required by the selected upstream preprocessing code.
+torchvision==0.15.2+cu118
+torchaudio==2.0.2+cu118
+mmcv==2.0.1
+mmengine==0.10.7
+mmdet==3.1.0
+mmpose==1.1.0
+chumpy==0.70
+scipy==1.15.3
+Cython==3.3.0
+gdown==5.2.0

@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 from threading import Lock
 from uuid import uuid4
 import logging
@@ -13,35 +12,29 @@ from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
 
-ROOT = Path(__file__).resolve().parents[2]
-SOURCE_DIR = ROOT / "third_party/CosyVoice"
+from inference.config import (
+    TTS_SOURCE_DIR as SOURCE_DIR, TTS_MODEL_DIR as MODEL_DIR,
+    REFERENCE_AUDIO, OUTPUT_DIR as BASE_OUTPUT_DIR, TTS_INSTRUCTION as INSTRUCTION,
+)
 
 sys.path.insert(0, str(SOURCE_DIR))
 sys.path.insert(0, str(SOURCE_DIR / "third_party/Matcha-TTS"))
 
 from cosyvoice.cli.cosyvoice import AutoModel  # noqa: E402
+from inference.tts.resources import local_wetext_resources  # noqa: E402
 
 
-MODEL_DIR = ROOT / "models/tts/Fun-CosyVoice3-0.5B-2512"
-REFERENCE_AUDIO = ROOT / "data/xiyang_prompt.wav"
-OUTPUT_DIR = ROOT / "runtime/outputs/tts"
+OUTPUT_DIR = BASE_OUTPUT_DIR / "tts"
 
-
-INSTRUCTION = (
-    "You are a helpful assistant. "
-    "请用山西话表达。<|endofprompt|>"
-)
 
 logger = logging.getLogger(__name__)
 model_lock = Lock()
 
 
-# 定义浏览器需要提交的数据
 class SynthesisRequest(BaseModel):
     text: str = Field(min_length=1, max_length=300)
 
 
-# 服务启动时加载模型
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not (MODEL_DIR / "cosyvoice3.yaml").is_file():
@@ -55,12 +48,15 @@ async def lifespan(app: FastAPI):
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    app.state.model = AutoModel(
-        model_dir=str(MODEL_DIR),
-        fp16=True,
-        load_trt=False,
-        load_vllm=False,
-    )
+    with local_wetext_resources():
+        app.state.model = AutoModel(
+            model_dir=str(MODEL_DIR),
+            fp16=True,
+            load_trt=False,
+            load_vllm=False,
+        )
+    if app.state.model.frontend.text_frontend != "wetext":
+        raise RuntimeError("WeText 未成功初始化，请检查其依赖和本地 FST 资源")
 
     yield
 
@@ -92,7 +88,6 @@ def synthesize(request: SynthesisRequest):
             detail="请输入需要生成语音的文字",
         )
 
-    # 每次请求使用不同的文件名
     output_path = OUTPUT_DIR / f"{uuid4().hex}.wav"
 
     try:
@@ -122,7 +117,6 @@ def synthesize(request: SynthesisRequest):
                 subtype="PCM_16",
             )
 
-        # 发送音频文件，发送完成后删除服务器上的临时副本
         return FileResponse(
             path=str(output_path),
             media_type="audio/wav",

@@ -11,7 +11,7 @@ from inference.verify_models import verify_model
 def test_health_does_not_claim_model_readiness():
     response = TestClient(create_app()).get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "stage": "foundation", "speech_api_ready": False}
+    assert response.json() == {"status": "ok"}
 
 
 def test_paths_are_relative_to_project_not_terminal(monkeypatch, tmp_path):

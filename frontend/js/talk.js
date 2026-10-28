@@ -1,4 +1,4 @@
-import { request, errorMessage } from "./api.js";
+import { request, errorMessage, serviceReady } from "./api.js";
 import { toast, setBusy } from "./ui.js";
 import { downloadUrl } from "./player.js";
 
@@ -21,6 +21,8 @@ export function initTalk({ talkMock }) {
   let pollTimer = null;
   let lastVideoUrl = null;
   let usedText = false;
+  let busy = false;
+  let previewUrl = null;
 
   if (talkMock) {
     badgeEl.textContent = "演示模式：暂未接入真实模型，返回示例视频";
@@ -31,14 +33,17 @@ export function initTalk({ talkMock }) {
     const hasImage = Boolean(imageFile);
     const hasText = textEl.value.trim().length > 0;
     const hasAudio = Boolean(audioInput.files[0]);
-    submitBtn.disabled = !hasImage || (!hasText && !hasAudio);
+    submitBtn.disabled = busy || !serviceReady("talk") || (hasText && !serviceReady("tts"))
+      || !hasImage || (!hasText && !hasAudio);
   }
 
   function setImage(next) {
     imageFile = next;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     const content = dropzone.querySelector(".dropzone__content");
     if (next) {
-      preview.src = URL.createObjectURL(next);
+      previewUrl = URL.createObjectURL(next);
+      preview.src = previewUrl;
       preview.classList.remove("is-hidden");
       content.classList.add("is-hidden");
     } else {
@@ -48,6 +53,9 @@ export function initTalk({ talkMock }) {
     }
     refresh();
   }
+
+  document.addEventListener("service-health", refresh);
+  refresh();
 
   dropzone.addEventListener("click", () => fileInput.click());
   dropzone.addEventListener("dragover", (e) => {
@@ -65,7 +73,12 @@ export function initTalk({ talkMock }) {
   audioInput.addEventListener("change", refresh);
 
   submitBtn.addEventListener("click", async () => {
-    if (!imageFile) return;
+    if (busy || submitBtn.disabled || !imageFile) return;
+    if (textEl.value.trim() && audioInput.files[0]) {
+      toast("文字与音频请选择一种输入");
+      return;
+    }
+    busy = true;
 
     usedText = Boolean(textEl.value.trim());
 
@@ -80,56 +93,81 @@ export function initTalk({ talkMock }) {
 
     try {
       const data = await request("/api/talk", { method: "POST", body: form });
-      setBusy(submitBtn, false);
-      refresh();
+      submitBtn.textContent = "生成中…";
       startPolling(data.job_id);
     } catch (err) {
       toast(errorMessage(err));
+      busy = false;
       setBusy(submitBtn, false);
       refresh();
       progressEl.classList.add("is-hidden");
     }
   });
 
-  function startPolling(jobId) {
-    clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
-      try {
-        const job = await request(`/api/talk/${jobId}`);
-        updateProgress(job);
+  function finish() {
+    busy = false;
+    setBusy(submitBtn, false);
+    refresh();
+    progressEl.classList.add("is-hidden");
+    sessionStorage.removeItem("talk-job");
+  }
 
+  function startPolling(jobId) {
+    clearTimeout(pollTimer);
+    sessionStorage.setItem("talk-job", JSON.stringify({ jobId, usedText }));
+    let failures = 0;
+    async function poll() {
+      try {
+        const job = await request("/api/talk/" + jobId, { signal: AbortSignal.timeout(10000) });
+        failures = 0;
+        updateProgress(job);
         if (job.status === "done") {
-          clearInterval(pollTimer);
           lastVideoUrl = job.video_url;
           videoEl.src = job.video_url;
           resultEl.classList.remove("is-hidden");
-          progressEl.classList.add("is-hidden");
+          finish();
           videoEl.play().catch(() => {});
-        } else if (job.status === "error") {
-          clearInterval(pollTimer);
-          progressEl.classList.add("is-hidden");
+          return;
+        }
+        if (job.status === "error") {
+          finish();
           toast(job.error || "生成失败");
+          return;
         }
       } catch (err) {
-        clearInterval(pollTimer);
-        progressEl.classList.add("is-hidden");
-        toast(errorMessage(err));
+        failures += 1;
+        if (failures >= 5) {
+          busy = false;
+          setBusy(submitBtn, false);
+          refresh();
+          progressLabel.textContent = "连接中断，可刷新页面继续查询任务。";
+          toast(errorMessage(err));
+          return;
+        }
+        progressLabel.textContent = "连接中断，正在重试…";
       }
-    }, 1000);
+      pollTimer = setTimeout(poll, 1500);
+    }
+    poll();
+  }
+
+  try {
+    const saved = JSON.parse(sessionStorage.getItem("talk-job"));
+    if (saved && saved.jobId) {
+      busy = true;
+      usedText = saved.usedText;
+      setBusy(submitBtn, true, "查询任务中…");
+      progressEl.classList.remove("is-hidden");
+      startPolling(saved.jobId);
+    }
+  } catch {
+    sessionStorage.removeItem("talk-job");
   }
 
   function updateProgress(job) {
     const p = Math.max(0, Math.min(100, job.progress || 0));
     progressFill.style.width = `${p}%`;
-    if (job.status !== "running") {
-      progressLabel.textContent = `排队中… ${p}%`;
-    } else if (usedText && p < 20) {
-      progressLabel.textContent = `生成方言音频中… ${p}%`;
-    } else if (p >= 20) {
-      progressLabel.textContent = `生成口型视频中… ${p}%`;
-    } else {
-      progressLabel.textContent = `生成中… ${p}%`;
-    }
+    progressLabel.textContent = job.message || "等待处理…";
   }
 
   downloadBtn.addEventListener("click", () => {

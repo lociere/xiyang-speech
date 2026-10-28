@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# Local artifacts: models, recordings, outputs and logs
+# Model weights and runtime artifacts
 /models/
 /runtime/
 **/pretrained_models/

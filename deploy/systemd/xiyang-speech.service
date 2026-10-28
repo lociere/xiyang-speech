@@ -1,0 +1,15 @@
+[Unit]
+Description=Xiyang speech application and model workers
+
+[Service]
+Type=exec
+WorkingDirectory=%h/xiyang-speech
+ExecStart=%h/miniconda3/envs/xiyang-app/bin/xiyang-speech start
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=90
+UMask=0077
+
+[Install]
+WantedBy=default.target

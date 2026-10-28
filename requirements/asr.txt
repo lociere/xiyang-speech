@@ -1,6 +1,5 @@
-# WSL2 Ubuntu 24.04 x86_64 / Python 3.10; baseline versions.
-# Install CUDA wheels from the sources in docs/installation.md first.
-# Existing-environment inference verified; fresh GPU rebuild is tracked separately.
+# Linux x86_64 / CPython 3.10.22; fixed runtime dependency snapshot.
+# First install the matching *-cuda.txt; see docs/setup.md.
 aliyun-python-sdk-core==2.16.1
 aliyun-python-sdk-kms==2.16.5
 annotated-types==0.8.0
@@ -111,3 +110,4 @@ websockets==16.1.1
 wheel==0.48.0
 whisper-normalizer==0.1.15
 zhconv==1.4.3
+python-dotenv==1.2.4
