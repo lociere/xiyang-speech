@@ -1,0 +1,9 @@
+{
+  "counts": {
+    "train": 10,
+    "dev": 1,
+    "test": 1
+  },
+  "unchecked": [],
+  "scope": "pipeline example; not a quality benchmark"
+}
