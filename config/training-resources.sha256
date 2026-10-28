@@ -1,0 +1,3 @@
+# FunAudioLLM/Fun-CosyVoice3-0.5B-2512, revision 29e01c4e8d000f4bcd70751be16fa94bf3d85a18.
+# SHA256 from the official Hugging Face LFS metadata. Run from repository root.
+b156b8a7bbff436585e153f4637b9a368009005ac66efa108a6c8bfb34e5ee43  models/training/cosyvoice3-onnx/speech_tokenizer_v3.batch.onnx

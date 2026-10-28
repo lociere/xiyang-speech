@@ -181,18 +181,48 @@ DeepSpeed 0.15.1 是上游该提交的依赖，即使选择 torch_ddp，训练�
 
 ### 路径与额外训练资源
 
+1. 在 xiyang-tts-train 环境、仓库根目录设置本终端使用的路径：
+
 ```bash
 export XIYANG_TRAIN_ROOT="$PWD"
 export PYTHONPATH="$XIYANG_TRAIN_ROOT/third_party/CosyVoice:$XIYANG_TRAIN_ROOT/third_party/CosyVoice/third_party/Matcha-TTS${PYTHONPATH:+:$PYTHONPATH}"
 export LD_LIBRARY_PATH="$(python -c 'import sys; from pathlib import Path; from inference.serve import library_paths; print(":".join(library_paths(Path(sys.prefix))))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-huggingface-cli download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 \
-  speech_tokenizer_v3.batch.onnx --revision 29e01c4 \
+```
+
+2. 默认使用 hf 下载，保留其默认 Xet 传输机制：
+
+```bash
+HF_HUB_DOWNLOAD_TIMEOUT=120 hf download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 \
+  speech_tokenizer_v3.batch.onnx \
+  --revision 29e01c4e8d000f4bcd70751be16fa94bf3d85a18 \
   --local-dir "$XIYANG_TRAIN_ROOT/models/training/cosyvoice3-onnx"
+```
+
+文件约 969 MB。等待命令成功结束并返回终端提示符，不要重复启动下载。Xet 的分块传输进展不一定立即反映在进度条或目标文件大小上，仅显示 0% 不能证明下载没有开始。
+
+如果下载反复超时、明确失败，或确认持续没有实际传输进展，先在下载终端按 Ctrl+C，等待旧命令退出，再使用下面的备用方式。已经下载成功则跳过此命令：
+
+```bash
+HF_HUB_DISABLE_XET=1 HF_HUB_DOWNLOAD_TIMEOUT=120 \
+hf download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 \
+  speech_tokenizer_v3.batch.onnx \
+  --revision 29e01c4e8d000f4bcd70751be16fa94bf3d85a18 \
+  --local-dir "$XIYANG_TRAIN_ROOT/models/training/cosyvoice3-onnx"
+```
+
+[HF_HUB_DISABLE_XET](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisablexet) 是官方支持的排障选项，仅改变传输方式，不改变模型文件。这里的变量只作用于单次命令，不写入 .env 或系统配置。普通 HTTP 不保证比 Xet 更快，切换时也不保证复用未完成的 Xet 分块。
+
+3. 无论采用哪种方式，下载完成后都先校验文件，再复制说话人特征模型：
+
+```bash
+sha256sum --check config/training-resources.sha256
 cp models/tts/Fun-CosyVoice3-0.5B-2512/campplus.onnx \
   models/training/cosyvoice3-onnx/campplus.onnx
 ```
 
-batch tokenizer 是约 969 MB 的训练资源，和推理使用的 speech_tokenizer_v3.onnx 不同。上游训练入口即使使用预提取 token，也会初始化这个 batch 模型。它在[官方权重仓库](https://huggingface.co/FunAudioLLM/Fun-CosyVoice3-0.5B-2512/tree/29e01c4)提供；下载放入独立训练资源目录，不覆盖已校验的推理模型。
+校验应显示 speech_tokenizer_v3.batch.onnx 对应结果为 OK。文件不存在或校验失败时，先修复下载，不进入特征提取。SHA256 来自固定提交的官方 LFS 文件元数据，文件大小为 969451579 字节。
+
+batch tokenizer 和推理使用的 speech_tokenizer_v3.onnx 不同。上游训练入口即使使用预提取 token，也会初始化这个 batch 模型。它在[官方权重仓库](https://huggingface.co/FunAudioLLM/Fun-CosyVoice3-0.5B-2512/tree/29e01c4e8d000f4bcd70751be16fa94bf3d85a18)提供；下载放入独立训练资源目录，不覆盖已校验的推理模型。
 
 动态库路径由当前环境的 PyTorch / NVIDIA wheel 目录生成，和模型服务启动时使用同一规则，使 ONNX Runtime 能找到对应的 CUDA / cuDNN 库。每次切换环境后应在新终端重新设置，不把旧环境的路径长期写入系统配置。
 
