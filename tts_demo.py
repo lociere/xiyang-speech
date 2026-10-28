@@ -60,7 +60,7 @@ for result in model.inference_instruct2(
     stream=False,
 ):
     audio_chunks.append(result["tts_speech"].detach().cpu())
-
+ 
 if not audio_chunks:
     raise RuntimeError("模型没有返回音频")
 

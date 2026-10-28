@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     asr_worker_url: str = "http://127.0.0.1:8101"
     tts_worker_url: str = "http://127.0.0.1:8102"
     talk_worker_url: str = "http://127.0.0.1:8103"
-    talk_mock: bool = True
 
     @field_validator("asr_model_dir", "tts_model_dir", "tts_source_dir", "output_dir")
     @classmethod

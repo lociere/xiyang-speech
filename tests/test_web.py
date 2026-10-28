@@ -28,17 +28,15 @@ def test_tts_rejects_empty_text():
     assert response.status_code == 422
 
 
-def test_talk_mock_submits_and_reports_job():
+def test_talk_proxy_returns_502_when_worker_offline(monkeypatch):
+    monkeypatch.setenv("XIYANG_TALK_WORKER_URL", "http://127.0.0.1:8199")
     client = _client()
     submit = client.post(
         "/api/talk",
         files={"image": ("face.png", b"fake-image", "image/png")},
         data={"text": "你好"},
     )
-    assert submit.status_code == 200
-    job_id = submit.json()["job_id"]
-    assert job_id
+    assert submit.status_code == 502
 
-    status = client.get(f"/api/talk/{job_id}")
-    assert status.status_code == 200
-    assert status.json()["status"] in {"running", "done"}
+    status = client.get("/api/talk/doesnotexist")
+    assert status.status_code == 502

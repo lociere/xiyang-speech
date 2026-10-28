@@ -20,6 +20,7 @@ export function initTalk({ talkMock }) {
   let imageFile = null;
   let pollTimer = null;
   let lastVideoUrl = null;
+  let usedText = false;
 
   if (talkMock) {
     badgeEl.textContent = "演示模式：暂未接入真实模型，返回示例视频";
@@ -66,9 +67,11 @@ export function initTalk({ talkMock }) {
   submitBtn.addEventListener("click", async () => {
     if (!imageFile) return;
 
+    usedText = Boolean(textEl.value.trim());
+
     const form = new FormData();
     form.append("image", imageFile);
-    if (textEl.value.trim()) form.append("text", textEl.value.trim());
+    if (usedText) form.append("text", textEl.value.trim());
     if (audioInput.files[0]) form.append("audio", audioInput.files[0]);
 
     progressEl.classList.remove("is-hidden");
@@ -118,7 +121,15 @@ export function initTalk({ talkMock }) {
   function updateProgress(job) {
     const p = Math.max(0, Math.min(100, job.progress || 0));
     progressFill.style.width = `${p}%`;
-    progressLabel.textContent = job.status === "running" ? `生成中… ${p}%` : `排队中… ${p}%`;
+    if (job.status !== "running") {
+      progressLabel.textContent = `排队中… ${p}%`;
+    } else if (usedText && p < 20) {
+      progressLabel.textContent = `生成方言音频中… ${p}%`;
+    } else if (p >= 20) {
+      progressLabel.textContent = `生成口型视频中… ${p}%`;
+    } else {
+      progressLabel.textContent = `生成中… ${p}%`;
+    }
   }
 
   downloadBtn.addEventListener("click", () => {
