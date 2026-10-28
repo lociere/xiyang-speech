@@ -2,12 +2,19 @@
 import argparse
 import csv
 import json
+import os
 import subprocess
 import wave
 from pathlib import Path
 
 FIELDS = ("id", "source", "text", "split", "checked")
 SPLITS = ("train", "dev", "test")
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def manifest_path(path):
+    """Upstream readers resolve manifest paths from the repository working directory."""
+    return Path(os.path.relpath(path, ROOT)).as_posix()
 
 
 def read_labels(path):
@@ -78,11 +85,11 @@ def prepare(labels, output, *, allow_unreviewed=False):
                 "key": key, "speech_length": round(duration * 100), "text_length": len(text),
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": f"语音转写：<|startofspeech|>!{wav16}<|endofspeech|>"},
+                    {"role": "user", "content": f"语音转写：<|startofspeech|>!{manifest_path(wav16)}<|endofspeech|>"},
                     {"role": "assistant", "content": text},
                 ],
             })
-            scp.append(f"{key} {wav24}")
+            scp.append(f"{key} {manifest_path(wav24)}")
             texts.append(f"{key} {text}")
             speakers.append(f"{key} xiyang_speaker01")
             instructions.append(f"{key} You are a helpful assistant.<|endofprompt|>")

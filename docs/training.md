@@ -80,8 +80,8 @@ ASR JSONL 每行一条记录，包含音频路径、长度和正确文字。user
 TTS 使用 Kaldi 风格文本清单：
 
 ```text
-# wav.scp：录音编号 → WAV 的绝对路径（实际文件中不写注释行）
-xy001 /absolute/project/data/training_demo/wav24k/xy001.wav
+# wav.scp：录音编号 → 相对仓库根目录的 WAV 路径（实际文件中不写注释行）
+xy001 data/training_demo/wav24k/xy001.wav
 
 # text：录音编号 → 完整转写
 xy001 下午要下雨呢，你早上快点把被子晒了
@@ -96,7 +96,7 @@ xiyang_speaker01 xy001 xy002
 xy001 You are a helpful assistant.<|endofprompt|>
 ```
 
-wav.scp 本身不是音频，只是普通文本索引。搬到另一台机器后，应重新运行准备命令，更新绝对路径。
+wav.scp 本身不是音频，只是普通文本索引。ASR JSONL、wav.scp 和 Parquet 索引均使用相对仓库根目录的路径；数据准备、特征提取和训练命令都从仓库根目录执行。完整拉取数据后，更换用户名或仓库存放目录无需修改这些路径。labels.tsv 的 source 则相对 labels.tsv 所在目录解析。
 
 ## 3. ASR 训练
 
@@ -251,11 +251,11 @@ for split in train dev test; do
   python third_party/CosyVoice/tools/make_parquet_list.py \
     --num_utts_per_parquet 100 --num_processes 1 \
     --src_dir "$XIYANG_TRAIN_ROOT/data/training_demo/tts/$split" \
-    --des_dir "$XIYANG_TRAIN_ROOT/data/training_demo/tts/$split/parquet"
+    --des_dir "data/training_demo/tts/$split/parquet"
 done
 ```
 
-应得到 utt2embedding.pt、spk2embedding.pt、utt2speech_token.pt、parquet/data.list 和 parquet_000000000.tar。这个 .tar 实际由上游按 Parquet 格式写入，不要当 tar 压缩包解压。检查日志中没有被跳过的录音或空 speech token；更改标注或划分后需要重新生成特征/Parquet，不能只修改 TSV 就直接训练。
+应得到 utt2embedding.pt、spk2embedding.pt、utt2speech_token.pt、parquet/data.list 和 parquet_000000000.tar。这个 .tar 实际由上游按 Parquet 格式写入，不要当 tar 压缩包解压。--des_dir 使用相对路径，使上游生成的 data.list 和 JSON 索引也能随仓库搬移；不要在这里换成带本机目录的绝对路径。当前固定上游版本的 make_parquet_list.py 在生成 spk2parquet JSON 时引用了未定义的 spk_list，可能留下空文件；仓库附带的三份说话人索引已补齐。本节 LLM 训练读取 data.list，不依赖该说话人索引；重新生成后若需要使用 spk2data.list，须先修复该上游问题并检查 JSON 完整性。检查日志中没有被跳过的录音或空 speech token；更改标注或划分后需要重新生成特征/Parquet，不能只修改 TSV 就直接训练。
 
 ### 启动 LLM 微调
 
@@ -344,4 +344,4 @@ python -m inference.tts.check \
 3. 固定测试集对比基线；保留失败样本，不用训练集表现代替质量评价。
 4. 当前 tiny 配置只做流程演示；扩充已核对的数据、独立验证集后，再决定正式训练轮数及学习率。
 
-data 下的录音、标注及训练数据清单纳入 Git。models 和 runtime 仍不纳入 Git，预训练及微调权重按资源说明或交付约定单独分发。数据清单中的绝对路径在另一台机器上使用前，应按本文重新导出。
+data 下的录音、标注及训练数据清单纳入 Git。models 和 runtime 仍不纳入 Git，预训练及微调权重按资源说明或交付约定单独分发。仓库内数据清单使用相对路径，拉取后从仓库根目录执行命令；修改录音、标注或划分时，再重新导出清单及 Parquet。

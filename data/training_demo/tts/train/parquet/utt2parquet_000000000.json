@@ -1,12 +1,12 @@
 {
-  "xy001": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy002": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy003": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy004": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy005": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy006": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy007": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy008": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy009": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar",
-  "xy010": "/home/elise/xiyang-speech/data/training_demo/tts/train/parquet/parquet_000000000.tar"
+  "xy001": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy002": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy003": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy004": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy005": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy006": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy007": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy008": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy009": "data/training_demo/tts/train/parquet/parquet_000000000.tar",
+  "xy010": "data/training_demo/tts/train/parquet/parquet_000000000.tar"
 }

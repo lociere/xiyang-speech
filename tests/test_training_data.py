@@ -1,10 +1,13 @@
 import csv
 import json
+import shutil
 import wave
+from pathlib import Path
 
 import pytest
 
 from training.prepare import FIELDS, prepare
+import training.prepare as preparation
 
 
 def fixture_labels(tmp_path, checked="yes"):
@@ -26,7 +29,8 @@ def fixture_labels(tmp_path, checked="yes"):
     return labels
 
 
-def test_export_keeps_holdout_sets_and_format_consistent(tmp_path):
+def test_export_keeps_holdout_sets_and_format_consistent(tmp_path, monkeypatch):
+    monkeypatch.setattr(preparation, "ROOT", tmp_path)
     labels = fixture_labels(tmp_path)
     prepare(labels, tmp_path)
     ids = []
@@ -37,9 +41,28 @@ def test_export_keeps_holdout_sets_and_format_consistent(tmp_path):
         assert record["messages"][2]["content"] == "你好，昔阳。"
         scp = (tmp_path / "tts" / split / "wav.scp").read_text()
         assert scp.startswith(record["key"] + " ")
-        assert str(tmp_path / "wav24k" / (record["key"] + ".wav")) in scp
+        assert f"wav24k/{record['key']}.wav" in scp
         assert "<|endofprompt|>" in (tmp_path / "tts" / split / "instruct").read_text()
     assert len(set(ids)) == 3
+
+
+def test_exported_paths_survive_repository_relocation(tmp_path, monkeypatch):
+    original = tmp_path / "original"
+    original.mkdir()
+    monkeypatch.setattr(preparation, "ROOT", original)
+    prepare(fixture_labels(original), original)
+    moved = tmp_path / "other-user" / "checkout"
+    shutil.copytree(original, moved)
+    shutil.rmtree(original)
+    for split in ("train", "dev", "test"):
+        record = json.loads((moved / "asr" / f"{split}.jsonl").read_text())
+        content = record["messages"][1]["content"]
+        audio = content.split("<|startofspeech|>!", 1)[1].split("<|endofspeech|>", 1)[0]
+        scp_audio = (moved / "tts" / split / "wav.scp").read_text().split(maxsplit=1)[1].strip()
+        for value in (audio, scp_audio):
+            assert not Path(value).is_absolute()
+            with wave.open(str(moved / value)) as stream:
+                assert stream.getnframes() > 0
 
 
 def test_unreviewed_transcriptions_require_explicit_preview(tmp_path):
