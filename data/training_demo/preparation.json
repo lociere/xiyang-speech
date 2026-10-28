@@ -4,6 +4,21 @@
     "dev": 1,
     "test": 1
   },
-  "unchecked": [],
-  "scope": "pipeline example; not a quality benchmark"
+  "unchecked": [
+    "xy001",
+    "xy002",
+    "xy003",
+    "xy004",
+    "xy005",
+    "xy006",
+    "xy007",
+    "xy008",
+    "xy009",
+    "xy010",
+    "xy011",
+    "xy016"
+  ],
+  "scope": "pipeline example; not a quality benchmark",
+  "requires_regeneration": true,
+  "reason": "ASR drafts require verbatim human review; regenerate manifests and Parquet after correcting labels."
 }

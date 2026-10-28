@@ -13,6 +13,8 @@
 
 显存还受音频时长、batch、精度和优化器影响。小数据只减少迭代次数，不会让模型参数及优化器状态按比例变小。正式训练可再按真实数据规模选择多卡、LoRA 或 DeepSpeed；本示例采用单卡训练，不要求部署设备承担训练。
 
+本示例的 10 条训练录音和 tts_tiny 配置已在 RTX 4050 Laptop 6 GB 显卡上完成 1 个 epoch，生成训练及验证日志和 epoch_0_whole.pt。上表为正式实验的设备规划建议，不是硬性显存下限；更长录音或更大 batch 需要重新测量显存。小样本流程跑通也不代表语音质量已经提升。
+
 训练前在应用环境执行 `xiyang-speech stop`，避免模型服务与训练争用 GPU。
 
 ## 2. 录音及标注
@@ -22,6 +24,7 @@
 ```text
 data/training_demo/
   labels.tsv            人工核对的标注及划分
+  transcription_draft.tsv  原文字与自动转写草稿的对照表
   wav16k/xy001.wav       ASR：16 kHz / 单声道 / PCM 16-bit
   wav24k/xy001.wav       TTS：24 kHz / 单声道 / PCM 16-bit
   asr/train.jsonl        其余为 dev.jsonl、test.jsonl
@@ -34,7 +37,7 @@ data/training_demo/
   preparation.json      导出数量及未核对 ID
 ```
 
-源录音统一存放在 data/wavs，采用 WAV / PCM 16-bit。本地现有源录音保留 48 kHz、双声道，数据准备阶段再生成各模型需要的版本。转换录音的命令本质上是：
+源录音统一存放在 data/wavs，使用 xy001.wav 等固定编号命名，不用句子作文件名。编号在原录音、派生录音和 labels.tsv 中保持一致。采用 WAV / PCM 16-bit，本地现有源录音保留 48 kHz、双声道，数据准备阶段再生成各模型需要的版本。转换录音的命令本质上是：
 
 ```bash
 ffmpeg -i "源录音.wav" -ac 1 -ar 16000 -c:a pcm_s16le xy001.wav
@@ -49,12 +52,16 @@ TTS 使用 `-ar 24000`。转换采样率不能修复噪声、截断或漏字。�
 | 列 | 用途 |
 |---|---|
 | id | 唯一录音编号，和两种 WAV 文件名对应 |
-| source | 相对 labels.tsv 的原始文件路径 |
+| source | 相对 labels.tsv 的源录音路径，如 ../wavs/xy001.wav |
 | text | 录音中实际说出的完整文字 |
 | split | train / dev / test / exclude |
 | checked | 听过并核对后改为 yes |
 
-当前 text 暂取文件名，不视为已人工确认。核对 xy001–xy011、xy016；不要把方言口语随意改写成书面普通话。xy012、xy013、xy014、xy017、xy020、xy021 的文件名疑似截断，暂时排除；其余未选录音可在补全标注后扩充。
+text 应为实际录音的逐字转写。自动识别产生的草稿未经人工确认，checked 保持 no；transcription_draft.tsv 保存 previous_text 和 asr_draft 供对照，不能把识别结果直接当正确标签。原有文字可能是释义或来自截断文件名，不应据此补写后半句。
+
+词语、顺序和实际重复要与录音匹配：录音说“后晌”时，不能在 TTS 标签或零样本参考转写中改成“下午”。同一个词仅口音不同，可以使用常用汉字，不要求逐音标注；标点、空格和数字写法可规范化。没有统一写法的方言词应约定一致的文字表示，保留词语而非换成近义释义。无法确认的片段先排除或重新录制。
+
+核对 xy001–xy011、xy016；其余暂为 exclude，可在补全逐字标注后扩充。核对的是整条音频，不只确认句子大意。修改正确后，逐条将 checked 改为 yes。
 
 固定划分：xy001–xy010 训练，xy011 验证，xy016 测试。不要把相同录音复制进不同集合。当前同说话人划分只能演示同说话人适配，不能评估对新说话人的泛化能力。
 
@@ -297,20 +304,36 @@ python third_party/CosyVoice/cosyvoice/bin/average_model.py \
 
 `--num 1` 仅导出验证集最优的单个 checkpoint；正式多轮实验可改成多个优选权重平均。检查输出实际选择的 epoch，不能误导出 init.pt。
 
-切回 TTS 推理环境，以训练集中的短录音作参考、以新句子作目标文本：
+切回 TTS 推理环境，先使用仓库附带的官方参考录音及匹配转写检查内容正确性。省略参考参数时，检查工具会使用这组配对：
 
 ```bash
 conda activate xiyang-tts
 export LD_LIBRARY_PATH="$(python -c 'import sys; from pathlib import Path; from inference.serve import library_paths; print(":".join(library_paths(Path(sys.prefix))))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 python -m inference.tts.check \
   --model-dir models/tts/xiyang-tiny \
-  --prompt-audio data/training_demo/wav24k/xy001.wav \
-  --prompt-text 'You are a helpful assistant.<|endofprompt|>下午要下雨呢，你早上快点把被子晒了' \
+  --seed 42 \
   --text '明天早上你去他家坐一坐，中午就能走了。' \
   --output runtime/training/tts-finetuned-test.wav
 ```
 
-参考文字必须与核对后的 xy001 录音一致。再用相同参考音频、相同目标句对基础模型运行一次，输出另一文件，比较清晰度、漏读重复、音色和方言发音。验证及测试录音不作训练数据；这里的目标句来自保留测试条目，正式评测还需增加未见过的新句子。
+再用相同参考音频、相同目标句、相同 seed 对基础模型运行一次，输出另一文件，比较清晰度、漏读重复、音色和方言发音。固定 seed 有助于对照，不保证不同硬件或软件版本逐样本一致。验证及测试录音不作训练数据；这里的目标句来自保留测试条目，正式评测还需增加未见过的新句子。
+
+本地方言录音尚无可靠逐字转写时，可先用基础模型的 instruct2 模式验证项目效果。它使用指令和参考录音，不接收参考转写，不代表模型已通过方言微调验收：
+
+```bash
+python -m inference.tts.check \
+  --model-dir models/tts/Fun-CosyVoice3-0.5B-2512 \
+  --mode instruct2 \
+  --prompt-audio data/training_demo/wav24k/xy001.wav \
+  --instruction 'You are a helpful assistant. 请用山西话表达。<|endofprompt|>' \
+  --text '明天早上你去他家坐一坐，中午就能走了。' \
+  --seed 42 \
+  --output runtime/training/tts-instruct-baseline-test.wav
+```
+
+若基础模型使用官方参考可读对，换成本地零样本参考后漏字或重复，应先检查参考音质、录音与转写是否匹配，再考虑训练。不要把对齐失败简单归因于训练轮数不足。修改 labels.tsv 后必须重新生成清单和 Parquet；重新训练使用新的实验输出目录，并从基础 checkpoint 开始，避免沿用错误标签训练出的权重。
+
+检查报告会记录 model_dir、llm_checkpoint 和 inference_mode。zero_shot 表示本次使用参考音频及其转写作为条件，微调模型也可以用这种推理方式。上游的目标文本过短警告按整个 prompt_text 的字符长度判断，包含英文指令前缀；它是效果提醒，不代表生成失败，不要为消除提醒而改错录音转写。是否生成成功应看输出 WAV 及报告，效果应通过试听对比判断。
 
 训练结果先离线验收，不自动替换应用 .env 或基础权重。满意后再建立正式模型版本、记录数据和配置快照，并在部署前验证接口及视频链路。
 
