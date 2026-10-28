@@ -1,0 +1,11 @@
+# CUDA 12.1 compiler and development files for a clone of the pinned xiyang-tts environment.
+# platform: linux-64 (Linux x86_64 / WSL2 Ubuntu)
+# Install into an existing Python environment. PyTorch supplies its GPU runtime libraries.
+# Official NVIDIA artifacts via the Anaconda API, pinned with MD5 checksums.
+@EXPLICIT
+https://api.anaconda.org/download/nvidia/cuda-cccl/12.1.109/linux-64/cuda-cccl-12.1.109-0.tar.bz2#9423b7c1cdaae4bc066eccd4059d833b
+https://api.anaconda.org/download/nvidia/cuda-cudart/12.1.105/linux-64/cuda-cudart-12.1.105-0.tar.bz2#001823a01c0d49300fd9622c4578eb40
+https://api.anaconda.org/download/nvidia/cuda-driver-dev/12.1.105/linux-64/cuda-driver-dev-12.1.105-0.tar.bz2#f7cd9e75e19b79c077ec180526455fb4
+https://api.anaconda.org/download/nvidia/cuda-nvcc/12.1.105/linux-64/cuda-nvcc-12.1.105-0.tar.bz2#2dadb744089a5326480060bdd7d0c045
+https://api.anaconda.org/download/nvidia/cuda-cudart-dev/12.1.105/linux-64/cuda-cudart-dev-12.1.105-0.tar.bz2#accec90e42a0c11db1dd946031f3842f
+https://api.anaconda.org/download/nvidia/cuda-cudart-static/12.1.105/linux-64/cuda-cudart-static-12.1.105-0.tar.bz2#f05e2f83beeb8425a7e25ee2fefeb6c7

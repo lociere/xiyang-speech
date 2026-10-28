@@ -155,7 +155,7 @@ python -m inference.asr.check \
 ```bash
 conda create -n xiyang-tts-train --clone xiyang-tts
 conda activate xiyang-tts-train
-conda install -c nvidia/label/cuda-12.1.1 cuda-toolkit
+conda install -n xiyang-tts-train --file environments/tts-cuda-dev-linux-64.explicit.txt
 export CUDA_HOME="$CONDA_PREFIX"
 export PATH="$CUDA_HOME/bin:$PATH"
 nvcc --version
@@ -163,9 +163,21 @@ DS_BUILD_OPS=0 python -m pip install --no-build-isolation -r requirements/tts-tr
 python -m pip check
 ```
 
-CUDA Toolkit 固定 12.1，与该环境 PyTorch cu121 匹配。DeepSpeed 0.15.1 是上游该提交的依赖，即使选择 torch_ddp，训练入口也会导入它；`DS_BUILD_OPS=0` 不提前编译可选算子。本流程不启用 DeepSpeed 训练引擎。推理不需要这个完整 Toolkit；只装在训练环境，不更改系统驱动。
+CUDA 开发组件固定为 12.1 系列，与该环境 PyTorch cu121 匹配。安装采用 [Conda 标准 explicit 清单](https://conda.org/learn/specifications/exchange/text-spec/)，固定 6 个 CUDA 包的版本、官方 Anaconda API 下载地址及 MD5 校验值，不重新求解软件源索引。清单仅用于已配置的 xiyang-tts 克隆环境，适用 Linux x86_64 / WSL2；它不是完整 Python 环境定义，不能单独用它创建训练环境。
+
+安装完成后，验收 CUDA 和训练依赖：
+
+```bash
+python -c "import torch, deepspeed; from torch.utils.cpp_extension import CUDA_HOME; print('torch:', torch.__version__); print('CUDA_HOME:', CUDA_HOME); print('deepspeed:', deepspeed.__version__); print('CUDA available:', torch.cuda.is_available()); print('CUDA calculation:', torch.tensor([1., 2.], device='cuda').square().sum().item())"
+```
+
+应看到 torch 为 2.3.1+cu121、DeepSpeed 为 0.15.1、CUDA_HOME 指向当前训练环境、CUDA available 为 True、CUDA calculation 为 5.0；前面的 nvcc 应显示 release 12.1，pip check 应无依赖冲突。这些检查确认训练环境基本可用，不代表已完成模型训练或证明显存足够。
+
+DeepSpeed 0.15.1 是上游该提交的依赖，即使选择 torch_ddp，训练入口也会导入它；`DS_BUILD_OPS=0` 不提前编译可选算子。本流程不启用 DeepSpeed 训练引擎。这里仅安装 nvcc、CUDA 运行时开发头文件和静态链接文件、驱动链接桩及 CCCL，不安装 Nsight 或整套静态计算库。PyTorch 的 GPU 运行库仍由原有 wheel 提供；这些开发组件只装在训练环境，不更改系统驱动。
 
 重新打开训练终端后，激活训练环境并重新设置 CUDA_HOME。若安装器或 import 报错，应解决该训练环境的问题，不要升级现有推理环境来尝试修复。
+
+若下载出现 HTTP 522、连接超时或断开，先等待安装命令退出，再重试同一条清单安装命令；Conda 会复用有效缓存。只有清单中的包全部已缓存时，才可增加 `--offline` 完成本地安装。出现下载错误不代表安装成功，不能跳过安装直接执行 nvcc 或训练。若提示 nvcc 找不到，先确认安装成功，再核对 CUDA_HOME 和 PATH；不要同时执行系统 apt 安装来修补这个 Conda 环境。
 
 ### 路径与额外训练资源
 

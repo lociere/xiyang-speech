@@ -17,6 +17,8 @@
 - `asr.in / tts.in / talk.in`：直接依赖记录；应用直接依赖定义在 pyproject.toml。
 - `build-constraints.txt`：ASR/TTS 隔离构建使用的 setuptools/NumPy。
 - `talk-build.txt`：chumpy 构建前需要的 NumPy、SciPy、Cython。
+- `tts-train.txt`：独立 TTS 训练环境使用的额外依赖。
+- `environments/tts-cuda-dev-linux-64.explicit.txt`：TTS 训练所需 CUDA 编译与开发组件的固定 Conda 包清单，含官方下载地址和校验值；安装方法见 [训练流程](../docs/training.md)。
 
 模型权重及辅助数据由 [资源清单](../config/models.json) 管理，准备方法见 [models.md](../docs/models.md)。
 
