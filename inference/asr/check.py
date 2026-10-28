@@ -10,6 +10,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", type=Path, default=ASR_MODEL_DIR)
     parser.add_argument("--audio", type=Path)
+    parser.add_argument("--checkpoint", type=Path, help="Fine-tuned FunASR model.pt checkpoint")
     parser.add_argument("--output", type=Path, default=ROOT / "runtime/checks/asr.json")
     args = parser.parse_args()
     model_dir = args.model_dir.resolve()
@@ -26,13 +27,21 @@ def main() -> None:
 
     if not torch.cuda.is_available():
         raise RuntimeError("当前验收配置要求 CUDA GPU，请检查驱动与 PyTorch。")
-    model = AutoModel(model=str(model_dir), device="cuda:0", disable_update=True)
+    overrides = {}
+    if args.checkpoint:
+        checkpoint = args.checkpoint.resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        overrides["init_param"] = str(checkpoint)
+    model = AutoModel(model=str(model_dir), device="cuda:0", disable_update=True, **overrides)
     result = model.generate(input=str(audio), language="中文", itn=True)
     if not result or not result[0].get("text", "").strip():
         raise RuntimeError("ASR 没有返回有效文字。")
     report = {
         "text": result[0]["text"], "input": str(audio), "torch": torch.__version__,
-        "device": torch.cuda.get_device_name(0), "scope": "baseline inference only",
+        "device": torch.cuda.get_device_name(0),
+        "checkpoint": overrides.get("init_param", str(model_dir / "model.pt")),
+        "scope": "fine-tuned inference" if args.checkpoint else "baseline inference only",
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -217,3 +217,37 @@ def test_shutdown_cancels_inflight_job(tmp_path):
         await asyncio.wait_for(runtime.close(), 2)
         assert models.closed and runtime.public(job)["status"] == "error"
     asyncio.run(scenario())
+
+
+def test_stage_timeouts_and_error_detail(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    import httpx
+
+    class Models(StandbyModels):
+        @asynccontextmanager
+        async def use(self, name):
+            yield "http://worker"
+
+    budgets = []
+    async def post(self, url, **kwargs):
+        budgets.append(self.timeout.read)
+        if url.endswith("/generate"):
+            raise httpx.ReadTimeout("slow video")
+        return httpx.Response(200)
+    monkeypatch.setattr("httpx.AsyncClient.post", post)
+
+    async def scenario():
+        runtime = JobRuntime(Settings(_env_file=None, output_dir=tmp_path,
+                                      inference_timeout=300, talk_inference_timeout=1800),
+                             models=Models())
+        runtime.accepting = True
+        job = runtime.submit("tts", {"text": "你好"})["job_id"]
+        await runtime._post(job, "tts", "/synthesize", "生成语音", 10)
+        try:
+            await runtime._post(job, "talk", "/generate", "生成口型视频", 55)
+        except RuntimeError as exc:
+            assert "1800" in str(exc) and "XIYANG_TALK_INFERENCE_TIMEOUT" in str(exc)
+        else:
+            raise AssertionError("timeout was not reported")
+        assert budgets == [300, 1800]
+    asyncio.run(scenario())

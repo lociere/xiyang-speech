@@ -1,0 +1,56 @@
+# FunASR 1.4.15; paths relative to the repository root.
+# The local model's config.yaml supplies the architecture and tokenizer configuration.
+model: models/asr/Fun-ASR-Nano-2512
+device: cuda:0
+disable_update: true
+seed: 42
+freeze_param: [ctc]
+use_deepspeed: false
+use_fsdp: false
+train_data_set_list: data/training_demo/asr/train.jsonl
+valid_data_set_list: data/training_demo/asr/dev.jsonl
+output_dir: runtime/training/asr-tiny
+audio_encoder_conf:
+  freeze: true
+llm_conf:
+  freeze: true
+  use_lora: false
+audio_adaptor_conf:
+  freeze: false
+ctc_decoder_conf:
+  freeze: true
+dataset: FunASR
+dataset_conf:
+  index_ds: FunASR
+  batch_sampler: BatchSampler
+  batch_type: example
+  batch_size: 1
+  num_workers: 0
+  data_split_num: 1
+  batch_size_sample_max: 1
+  batch_size_token_max: 3000
+  max_token_length: 3000
+  shuffle: true
+  sort_size: 1
+  prompt_classes: null
+  do_think: false
+train_conf:
+  use_deepspeed: false
+  use_bf16: false
+  resume: false
+  max_epoch: 1
+  accum_grad: 1
+  grad_clip: 5
+  log_interval: 1
+  validate_interval: 10
+  save_checkpoint_interval: 10
+  keep_nbest_models: 2
+  avg_nbest_model: 1
+  effective_save_name_excludes: []
+optim: adamw
+optim_conf:
+  lr: 0.00001
+  weight_decay: 0.01
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 2

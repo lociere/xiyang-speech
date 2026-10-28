@@ -224,9 +224,18 @@ class JobRuntime:
                           progress=progress)
         async with self.models.use(name) as url:
             self.store.update(job_id, message=f"正在{message}")
-            async with httpx.AsyncClient(timeout=self.settings.inference_timeout,
+            timeout = (self.settings.talk_inference_timeout if name == "talk"
+                       else self.settings.inference_timeout)
+            async with httpx.AsyncClient(timeout=timeout,
                                          trust_env=False) as client:
-                response = await client.post(url + endpoint, **kwargs)
+                try:
+                    response = await client.post(url + endpoint, **kwargs)
+                except httpx.TimeoutException as exc:
+                    raise RuntimeError(
+                        f"{message}超时（{timeout:g} 秒），请缩短输入或调整"
+                        + (" XIYANG_TALK_INFERENCE_TIMEOUT" if name == "talk"
+                           else " XIYANG_INFERENCE_TIMEOUT")
+                    ) from exc
             if response.is_error:
                 try:
                     detail = response.json()["detail"]

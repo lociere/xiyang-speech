@@ -33,7 +33,8 @@ Supervisor 管理应用及模型进程。模型按需加载，切换或空闲超
 | XIYANG_PORT | 8000 | 应用端口 |
 | XIYANG_MODEL_IDLE_SECONDS | 120 | 模型空闲保留秒数，0 表示任务结束后立即退出 |
 | XIYANG_MODEL_START_TIMEOUT | 300 | 模型加载超时秒数 |
-| XIYANG_INFERENCE_TIMEOUT | 300 | 单阶段推理超时秒数 |
+| XIYANG_INFERENCE_TIMEOUT | 300 | ASR、TTS 单阶段推理超时秒数 |
+| XIYANG_TALK_INFERENCE_TIMEOUT | 1800 | 数字人视频生成超时秒数 |
 | XIYANG_MAX_QUEUED_JOBS | 8 | 最大等待任务数，不含执行中的一个 |
 | XIYANG_MAX_AUDIO_SECONDS | 60 | 上传录音及数字人驱动音频的时长上限 |
 | XIYANG_MAX_AUDIO_MB | 25 | 录音体积上限 |
@@ -49,6 +50,7 @@ Supervisor 管理应用及模型进程。模型按需加载，切换或空闲超
 - 任务及结果：输出目录下的 jobs/jobs.sqlite3 和各任务子目录。
 - 应用异常退出后自动重启；模型失败使当前任务失败，后续任务可重新启动模型。
 - 加载或推理超时会停止对应模型进程。
+- 视频生成耗时随音频长度和设备性能变化；等待上限不代表预计完成时间。超时错误会指出失败阶段及对应配置项，修改 .env 后需重启项目。
 - 应用重启后，已完成结果保留，未完成任务标记失败并需重新提交。
 
 ```bash

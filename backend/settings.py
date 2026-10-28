@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     model_idle_seconds: float = Field(default=120, ge=0)
     model_start_timeout: float = Field(default=300, gt=0)
     inference_timeout: float = Field(default=300, gt=0)
+    talk_inference_timeout: float = Field(default=1800, gt=0)
     max_queued_jobs: int = Field(default=8, ge=1)
     max_audio_seconds: float = Field(default=60, gt=0)
     max_audio_mb: int = Field(default=25, ge=1)

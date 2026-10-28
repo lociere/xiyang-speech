@@ -6,6 +6,7 @@
 # Model weights and runtime artifacts
 /models/
 /runtime/
+/data/training_demo/
 **/pretrained_models/
 *.pt
 *.pth

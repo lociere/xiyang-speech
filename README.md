@@ -30,6 +30,7 @@ xiyang-speech start
 - [HTTP API](docs/api.md)
 - [依赖管理](requirements/README.md)
 - [交付验收](docs/delivery.md)
+- [ASR / TTS 小数据训练示例](docs/training.md)
 
 ## 目录
 
@@ -38,6 +39,7 @@ xiyang-speech start
 | backend | 应用、任务队列和进程管理 |
 | frontend | 网页及静态资源 |
 | inference | 模型适配、推理服务和资源校验 |
+| training | 数据集准备及独立训练参数配置 |
 | third_party | 固定提交的 CosyVoice、MuseTalk 子模块 |
 | environments | Conda 基础环境定义 |
 | requirements | pip 依赖和 GPU wheel 来源 |
